@@ -250,7 +250,7 @@ fn split_range_by_grapheme_width(
 }
 
 #[inline]
-fn chunk_text<'a>(line: &'a str, chunk: Chunk) -> &'a str {
+fn chunk_text(line: &str, chunk: Chunk) -> &str {
     &line[chunk.start..chunk.end]
 }
 
