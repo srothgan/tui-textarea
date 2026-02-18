@@ -343,7 +343,7 @@ assert_eq!(textarea.into_lines(), [""]);
 
 ### Show line number
 
-By default, `TextArea` does now show line numbers. To enable, set a style for rendering line numbers by
+By default, `TextArea` does not show line numbers. To enable, set a style for rendering line numbers by
 `TextArea::set_line_number_style()`. For example, the following renders line numbers in dark gray background
 color.
 
@@ -485,6 +485,7 @@ notify how to move the cursor.
 | `textarea.delete_line_by_head()`                     | Delete from cursor until the head of line       |
 | `textarea.delete_word()`                             | Delete one word before cursor                   |
 | `textarea.delete_next_word()`                        | Delete one word next to cursor                  |
+| `textarea.clear()`                                   | Clear all text                                  |
 | `textarea.undo()`                                    | Undo                                            |
 | `textarea.redo()`                                    | Redo                                            |
 | `textarea.copy()`                                    | Copy selected text                              |
@@ -493,6 +494,8 @@ notify how to move the cursor.
 | `textarea.start_selection()`                         | Start text selection                            |
 | `textarea.cancel_selection()`                        | Cancel text selection                           |
 | `textarea.select_all()`                              | Select entire text                              |
+| `textarea.custom_highlight(range, style, priority)`  | Add a custom highlighted range                  |
+| `textarea.clear_custom_highlight()`                  | Clear all custom highlights                     |
 | `textarea.move_cursor(CursorMove::Forward)`          | Move cursor forward by one character            |
 | `textarea.move_cursor(CursorMove::Back)`             | Move cursor backward by one character           |
 | `textarea.move_cursor(CursorMove::Up)`               | Move cursor up by one line                      |
@@ -709,7 +712,7 @@ Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before reporting an issue or ma
 
 ## License
 
-tui-textarea-2 is distributed under [The MIT License](./LICENSE.txt).
+tui-textarea-2 is distributed under [The MIT License](./LICENSE).
 
 [crates-io-badge]: https://img.shields.io/crates/v/tui-textarea-2.svg
 [crate]: https://crates.io/crates/tui-textarea-2

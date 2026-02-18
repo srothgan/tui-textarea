@@ -1,3 +1,16 @@
+<a id="v0.8.0"></a>
+# [v0.8.0](https://github.com/srothgan/tui-textarea/releases/tag/v0.8.0) - 2026-02-18
+
+- Add `TextArea::clear()` API to clear all text content with undo/redo coverage. (upstream PR [#113](https://github.com/rhysd/tui-textarea/pull/113))
+- Add custom highlight ranges with priority via `TextArea::custom_highlight()` and `TextArea::clear_custom_highlight()`. (upstream PR [#93](https://github.com/rhysd/tui-textarea/pull/93))
+- Fix horizontal scrolling with wide Unicode characters by using display width for cursor column calculations. (upstream PR [#94](https://github.com/rhysd/tui-textarea/pull/94))
+- Treat `_` as part of words for word navigation/edit operations. (upstream PR [#98](https://github.com/rhysd/tui-textarea/pull/98))
+- Fix editor examples to preserve modified state across multiple inputs. (upstream PR [#100](https://github.com/rhysd/tui-textarea/pull/100))
+- Use `portable-atomic` for viewport atomics to improve target compatibility. (upstream PR [#111](https://github.com/rhysd/tui-textarea/pull/111))
+- Fix README wording for line-number default behavior. (upstream PR [#116](https://github.com/rhysd/tui-textarea/pull/116))
+
+[Changes][v0.8.0]
+
 <a id="v0.7.1"></a>
 # [v0.7.1](https://github.com/srothgan/tui-textarea/releases/tag/v0.7.1) - 2026-02-18
 
@@ -449,6 +462,7 @@ First release :tada:
 
 [Changes][v0.1.0]
 
+[v0.8.0]: https://github.com/srothgan/tui-textarea/compare/v0.7.1...v0.8.0
 [v0.7.1]: https://github.com/srothgan/tui-textarea/compare/v0.7.0...v0.7.1
 [v0.7.0]: https://github.com/rhysd/tui-textarea/compare/v0.6.1...v0.7.0
 [v0.6.1]: https://github.com/rhysd/tui-textarea/compare/v0.6.0...v0.6.1

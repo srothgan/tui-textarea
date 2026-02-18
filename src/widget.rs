@@ -4,12 +4,13 @@ use crate::ratatui::text::{Span, Text};
 use crate::ratatui::widgets::{Paragraph, Widget};
 use crate::textarea::TextArea;
 use crate::util::num_digits;
+use portable_atomic::{AtomicU64, Ordering};
 #[cfg(feature = "ratatui")]
 use ratatui_core::text::Line;
 use std::cmp;
-use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(feature = "tuirs")]
 use tui::text::Spans as Line;
+use unicode_width::UnicodeWidthChar;
 
 // &mut 'a (u16, u16, u16, u16) is not available since `render` method takes immutable reference of TextArea
 // instance. In the case, the TextArea instance cannot be accessed from any other objects since it is mutablly
@@ -114,7 +115,15 @@ impl<'a> TextArea<'a> {
     }
 
     fn scroll_top_col(&self, prev_top: u16, width: u16) -> u16 {
-        let mut cursor = self.cursor().1 as u16;
+        let (row, col) = self.cursor();
+
+        // Adujst the cursor position due to the width of non-latine characters.
+        let mut cursor = self.lines()[row]
+            .chars()
+            .take(col)
+            .map(|c| c.width().unwrap_or(0))
+            .sum::<usize>() as u16;
+
         // Adjust the cursor position due to the width of line number.
         if self.line_number_style().is_some() {
             let lnum = num_digits(self.lines().len()) as u16 + 2; // `+ 2` for margins

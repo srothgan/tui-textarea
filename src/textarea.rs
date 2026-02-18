@@ -55,6 +55,13 @@ impl fmt::Display for YankText {
     }
 }
 
+#[derive(Clone, Debug)]
+struct CustomHighlight {
+    range: ((usize, usize), (usize, usize)),
+    style: Style,
+    priority: u8,
+}
+
 /// A type to manage state of textarea. These are some important methods:
 ///
 /// - [`TextArea::default`] creates an empty textarea.
@@ -125,6 +132,7 @@ pub struct TextArea<'a> {
     mask: Option<char>,
     selection_start: Option<(usize, usize)>,
     select_style: Style,
+    custom_highlights: Vec<CustomHighlight>,
 }
 
 /// Convert any iterator whose elements can be converted into [`String`] into [`TextArea`]. Each [`String`] element is
@@ -230,6 +238,7 @@ impl<'a> TextArea<'a> {
             mask: None,
             selection_start: None,
             select_style: Style::default().bg(Color::LightBlue),
+            custom_highlights: Default::default(),
         }
     }
 
@@ -1299,6 +1308,37 @@ impl<'a> TextArea<'a> {
         }
     }
 
+    /// Clears the whole content of the text area.
+    /// This will result in an empty text area.
+    /// The position of the cursor does matter for clearing the entire text.
+    ///
+    /// This method returns if some text was deleted or not in the textarea.
+    ///
+    /// ```
+    /// use tui_textarea::TextArea;
+    ///
+    /// let mut textarea = TextArea::from(["aaa\nbbb ccc"]);
+    ///
+    /// textarea.clear();
+    /// assert!(textarea.is_empty());
+    /// ```
+    pub fn clear(&mut self) -> bool {
+        if self.is_empty() {
+            return false;
+        }
+
+        let all_lines = self.lines();
+        let summed_up_chars_new_lines: usize = all_lines
+            .iter()
+            .map(|line| line.chars().map(|_| 1usize).sum::<usize>())
+            .sum();
+        let all_chars = all_lines.len() + summed_up_chars_new_lines;
+        self.move_cursor(CursorMove::Jump(0, 0));
+        self.delete_str(all_chars);
+
+        true
+    }
+
     /// Paste a string previously deleted by [`TextArea::delete_line_by_head`], [`TextArea::delete_line_by_end`],
     /// [`TextArea::delete_word`], [`TextArea::delete_next_word`]. This method returns if some text was inserted or not
     /// in the textarea.
@@ -1353,6 +1393,23 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn cancel_selection(&mut self) {
         self.selection_start = None;
+    }
+
+    pub fn custom_highlight(
+        &mut self,
+        range: ((usize, usize), (usize, usize)),
+        style: Style,
+        priority: u8,
+    ) {
+        self.custom_highlights.push(CustomHighlight {
+            range,
+            style,
+            priority,
+        });
+    }
+
+    pub fn clear_custom_highlight(&mut self) {
+        self.custom_highlights.clear();
     }
 
     /// Select the entire text. Cursor moves to the end of the text buffer. When text selection is already ongoing,
@@ -1610,6 +1667,20 @@ impl<'a> TextArea<'a> {
 
         if let Some((start, end)) = self.selection_positions() {
             hl.selection(row, start.row, start.offset, end.row, end.offset);
+        }
+
+        for CustomHighlight {
+            range: ((start_row, start_offset), (end_row, end_offset)),
+            style,
+            priority,
+        } in &self.custom_highlights
+        {
+            hl.custom(
+                row,
+                ((*start_row, *start_offset), (*end_row, *end_offset)),
+                *style,
+                *priority,
+            );
         }
 
         hl.into_spans()
