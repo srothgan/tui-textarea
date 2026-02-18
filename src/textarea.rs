@@ -998,6 +998,14 @@ impl<'a> TextArea<'a> {
             r += 1;
         }
 
+        if r == self.lines.len() {
+            // Clamp exhausted deletions to EOF on the last line so history keeps a valid cursor.
+            r = self.lines.len() - 1;
+            let line = &self.lines[r];
+            offset = line.len();
+            col = line.chars().count();
+        }
+
         let start = Pos::new(start_row, start_col, start_offset);
         let end = Pos::new(r, col, offset);
         self.delete_range(start, end, true);
@@ -1465,6 +1473,18 @@ impl<'a> TextArea<'a> {
             .unwrap_or(line.len())
     }
 
+    fn clamp_cursor_to_buffer(&mut self, cursor: (usize, usize)) -> (usize, usize) {
+        if self.lines.is_empty() {
+            self.lines.push(String::new());
+            return (0, 0);
+        }
+
+        let (row, col) = cursor;
+        let row = row.min(self.lines.len() - 1);
+        let col = col.min(self.lines[row].chars().count());
+        (row, col)
+    }
+
     /// Set the style used for text selection. The default style is light blue.
     /// ```
     /// use tui_textarea::TextArea;
@@ -1651,7 +1671,7 @@ impl<'a> TextArea<'a> {
     pub fn undo(&mut self) -> bool {
         if let Some(cursor) = self.history.undo(&mut self.lines) {
             self.cancel_selection();
-            self.cursor = cursor;
+            self.cursor = self.clamp_cursor_to_buffer(cursor);
             true
         } else {
             false
@@ -1674,7 +1694,7 @@ impl<'a> TextArea<'a> {
     pub fn redo(&mut self) -> bool {
         if let Some(cursor) = self.history.redo(&mut self.lines) {
             self.cancel_selection();
-            self.cursor = cursor;
+            self.cursor = self.clamp_cursor_to_buffer(cursor);
             true
         } else {
             false
@@ -2638,5 +2658,34 @@ mod tests {
         assert_eq!(textarea.cursor(), (15, 0));
         textarea.scroll((-5, 0));
         assert_eq!(textarea.cursor(), (12, 0));
+    }
+
+    #[test]
+    fn undo_clamps_invalid_cursor_from_history() {
+        let mut textarea = TextArea::default();
+        textarea.history.push(Edit::new(
+            EditKind::DeleteStr(String::new()),
+            Pos::new(1, 10, 0),
+            Pos::new(0, 0, 0),
+        ));
+
+        assert!(textarea.undo());
+        assert_eq!(textarea.lines(), [""]);
+        assert_eq!(textarea.cursor(), (0, 0));
+    }
+
+    #[test]
+    fn redo_clamps_invalid_cursor_from_history() {
+        let mut textarea = TextArea::default();
+        textarea.history.push(Edit::new(
+            EditKind::InsertStr(String::new()),
+            Pos::new(0, 0, 0),
+            Pos::new(1, 10, 0),
+        ));
+
+        assert!(textarea.undo());
+        assert!(textarea.redo());
+        assert_eq!(textarea.lines(), [""]);
+        assert_eq!(textarea.cursor(), (0, 0));
     }
 }

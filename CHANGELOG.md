@@ -1,3 +1,13 @@
+<a id="v0.9.1"></a>
+# [v0.9.1](https://github.com/srothgan/tui-textarea/releases/tag/v0.9.1) - 2026-02-18
+
+- Fix panic on `Ctrl+U`/`undo()` after oversized `delete_str()` (including `select_all() + delete_str(usize::MAX)` on empty buffers).
+- Fix root cause by clamping exhausted `delete_str()` ranges to EOF so history never stores out-of-bounds rows.
+- Add defensive cursor clamping in `undo()`/`redo()` when restoring from history.
+- Add regression tests for the reported panic paths and invalid-history cursor restore edge cases.
+
+[Changes][v0.9.1]
+
 <a id="v0.9.0"></a>
 # [v0.9.0](https://github.com/srothgan/tui-textarea/releases/tag/v0.9.0) - 2026-02-18
 
@@ -474,6 +484,7 @@ First release :tada:
 
 [Changes][v0.1.0]
 
+[v0.9.1]: https://github.com/srothgan/tui-textarea/compare/v0.9.0...v0.9.1
 [v0.9.0]: https://github.com/srothgan/tui-textarea/compare/v0.8.0...v0.9.0
 [v0.8.0]: https://github.com/srothgan/tui-textarea/compare/v0.7.1...v0.8.0
 [v0.7.1]: https://github.com/srothgan/tui-textarea/compare/v0.7.0...v0.7.1

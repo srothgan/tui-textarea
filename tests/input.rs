@@ -80,3 +80,38 @@ fn test_insert_multi_code_unit_emoji() {
     }
     assert_eq!(t.lines(), ["👨‍👩‍👧‍👦"]);
 }
+
+#[test]
+fn test_ctrl_u_after_delete_str_max_on_empty_buffer() {
+    let mut t = TextArea::default();
+    assert!(t.delete_str(usize::MAX));
+    assert_eq!(t.lines(), [""]);
+    assert_eq!(t.cursor(), (0, 0));
+
+    assert!(t.input(Input {
+        key: Key::Char('u'),
+        ctrl: true,
+        alt: false,
+        shift: false,
+    }));
+    assert_eq!(t.lines(), [""]);
+    assert_eq!(t.cursor(), (0, 0));
+}
+
+#[test]
+fn test_ctrl_u_after_select_all_then_delete_str_max_on_empty_buffer() {
+    let mut t = TextArea::default();
+    t.select_all();
+    assert!(t.delete_str(usize::MAX));
+    assert_eq!(t.lines(), [""]);
+    assert_eq!(t.cursor(), (0, 0));
+
+    assert!(t.input(Input {
+        key: Key::Char('u'),
+        ctrl: true,
+        alt: false,
+        shift: false,
+    }));
+    assert_eq!(t.lines(), [""]);
+    assert_eq!(t.cursor(), (0, 0));
+}
