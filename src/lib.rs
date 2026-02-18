@@ -18,6 +18,7 @@ mod textarea;
 mod util;
 mod widget;
 mod word;
+mod wrap;
 
 #[cfg(feature = "ratatui")]
 #[allow(clippy::single_component_path_imports)]
@@ -51,3 +52,4 @@ pub use cursor::CursorMove;
 pub use input::{Input, Key};
 pub use scroll::Scrolling;
 pub use textarea::TextArea;
+pub use wrap::WrapMode;
