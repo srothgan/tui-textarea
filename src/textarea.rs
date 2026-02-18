@@ -1677,10 +1677,7 @@ impl<'a> TextArea<'a> {
         {
             hl.custom(
                 row,
-                *start_row,
-                *start_offset,
-                *end_row,
-                *end_offset,
+                ((*start_row, *start_offset), (*end_row, *end_offset)),
                 *style,
                 *priority,
             );

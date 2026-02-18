@@ -211,13 +211,11 @@ impl<'a> LineHighlighter<'a> {
     pub fn custom(
         &mut self,
         current_row: usize,
-        start_row: usize,
-        start_off: usize,
-        end_row: usize,
-        end_off: usize,
+        range: ((usize, usize), (usize, usize)),
         style: Style,
         priority: u8,
     ) {
+        let ((start_row, start_off), (end_row, end_off)) = range;
         self.multiline_highlight(
             current_row,
             start_row,

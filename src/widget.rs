@@ -4,13 +4,13 @@ use crate::ratatui::text::{Span, Text};
 use crate::ratatui::widgets::{Paragraph, Widget};
 use crate::textarea::TextArea;
 use crate::util::num_digits;
+use portable_atomic::{AtomicU64, Ordering};
 #[cfg(feature = "ratatui")]
 use ratatui_core::text::Line;
-use unicode_width::UnicodeWidthChar;
 use std::cmp;
-use portable_atomic::{AtomicU64, Ordering};
 #[cfg(feature = "tuirs")]
 use tui::text::Spans as Line;
+use unicode_width::UnicodeWidthChar;
 
 // &mut 'a (u16, u16, u16, u16) is not available since `render` method takes immutable reference of TextArea
 // instance. In the case, the TextArea instance cannot be accessed from any other objects since it is mutablly
