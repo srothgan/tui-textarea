@@ -46,6 +46,7 @@ crossterm-028 = { package = "crossterm", version = "0.28", optional = true }
 crossterm-025 = { package = "crossterm", version = "0.25", optional = true }
 ratatui-core = { version = "0.1.0", default-features = false, optional = true }
 ratatui-widgets = { version = "0.3.0", default-features = false, optional = true }
+portable-atomic = "1.11.1"
 regex = { version = "1", optional = true }
 termion = { version = "4.0", optional = true }
 termion-15 = { package = "termion", version = "1.5", optional = true }
