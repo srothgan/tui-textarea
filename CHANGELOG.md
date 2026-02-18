@@ -1,3 +1,15 @@
+<a id="v0.9.0"></a>
+# [v0.9.0](https://github.com/srothgan/tui-textarea/releases/tag/v0.9.0) - 2026-02-18
+
+- Add opt-in soft-wrap modes via `WrapMode::{None, Word, Glyph, WordOrGlyph}` and `TextArea::set_wrap_mode`.
+- Add Unicode-aware wrapped rendering with logical-to-visual row mapping.
+- Keep backward-compatible behavior in `WrapMode::None` (existing horizontal scrolling path).
+- Make wrapped width calculations tab-aware to prevent hidden text on lines containing `\t`.
+- Fix wrapped continuation rendering for cursor-line style and selection boundaries.
+- Add comprehensive wrap regression tests for long text, newlines, tabs, tiny widths, and wrapped highlight behavior.
+
+[Changes][v0.9.0]
+
 <a id="v0.8.0"></a>
 # [v0.8.0](https://github.com/srothgan/tui-textarea/releases/tag/v0.8.0) - 2026-02-18
 
@@ -462,6 +474,7 @@ First release :tada:
 
 [Changes][v0.1.0]
 
+[v0.9.0]: https://github.com/srothgan/tui-textarea/compare/v0.8.0...v0.9.0
 [v0.8.0]: https://github.com/srothgan/tui-textarea/compare/v0.7.1...v0.8.0
 [v0.7.1]: https://github.com/srothgan/tui-textarea/compare/v0.7.0...v0.7.1
 [v0.7.0]: https://github.com/rhysd/tui-textarea/compare/v0.6.1...v0.7.0

@@ -138,6 +138,10 @@ impl<'a> LineHighlighter<'a> {
             .push(Span::styled(format!("{}{} ", pad, row + 1), style));
     }
 
+    pub fn line_number_placeholder(&mut self, lnum_len: u8, style: Style) {
+        self.spans.push(Span::styled(spaces(lnum_len + 2), style));
+    }
+
     pub fn cursor_line(&mut self, cursor_col: usize, style: Style) {
         if let Some((start, c)) = self.line.char_indices().nth(cursor_col) {
             self.boundaries
@@ -146,6 +150,10 @@ impl<'a> LineHighlighter<'a> {
         } else {
             self.cursor_at_end = true;
         }
+        self.style_begin = style;
+    }
+
+    pub fn set_line_style(&mut self, style: Style) {
         self.style_begin = style;
     }
 
@@ -206,6 +214,17 @@ impl<'a> LineHighlighter<'a> {
             end_off,
             Boundary::Select(self.select_style),
         );
+    }
+
+    pub fn selection_segment(&mut self, start_off: usize, end_off: usize, select_at_end: bool) {
+        if start_off < end_off {
+            self.boundaries
+                .push((Boundary::Select(self.select_style), start_off));
+            self.boundaries.push((Boundary::End, end_off));
+        }
+        if select_at_end {
+            self.select_at_end = true;
+        }
     }
 
     pub fn custom(

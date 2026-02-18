@@ -385,6 +385,24 @@ Typing tab key inserts 2 spaces.
 textarea.set_tab_length(2);
 ```
 
+### Configure soft wrap mode
+
+By default, soft wrapping is disabled and long lines are handled by horizontal scrolling. To enable soft wrapping, set
+`TextArea::set_wrap_mode()` with one of the supported modes.
+
+```rust,ignore
+use tui_textarea::WrapMode;
+
+textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+```
+
+Supported modes:
+
+- `WrapMode::None`: Disable soft wrap (default behavior).
+- `WrapMode::Word`: Wrap only at word boundaries.
+- `WrapMode::Glyph`: Wrap at grapheme boundaries.
+- `WrapMode::WordOrGlyph`: Wrap at word boundaries with grapheme fallback for long words.
+
 ### Configure max history size
 
 By default, past 50 modifications are stored as edit history. The history is used for undo/redo. To change how many past
