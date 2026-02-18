@@ -1,0 +1,24 @@
+name: Cross Platform
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  cross-platform:
+    name: cross-platform default (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check
+      - run: cargo test
