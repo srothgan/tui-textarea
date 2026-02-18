@@ -1,47 +1,91 @@
 name: Release
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - Cargo.toml
+      - CHANGELOG.md
+      - bench/Cargo.toml
+      - .github/workflows/release.yml
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Cargo.toml version to release (for example 0.7.0)"
-        required: true
-        type: string
-      publish:
-        description: "Publish to crates.io (false runs dry validation only)"
-        required: true
-        default: false
-        type: boolean
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
 
 jobs:
   release:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    environment: release
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: dtolnay/rust-toolchain@stable
+
       - uses: Swatinem/rust-cache@v2
-      - name: Verify requested version matches Cargo.toml
+
+      - name: Read version and tag
+        id: meta
         shell: bash
         run: |
-          actual="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
-          if [[ -z "$actual" ]]; then
-            echo "Could not parse version from Cargo.toml"
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+          if [[ -z "$version" ]]; then
+            echo "Unable to parse version from Cargo.toml"
             exit 1
           fi
-          if [[ "$actual" != "${{ inputs.version }}" ]]; then
-            echo "Requested version ${{ inputs.version }} does not match Cargo.toml version $actual"
-            exit 1
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether tag already exists
+        id: tag
+        shell: bash
+        run: |
+          if git rev-parse -q --verify "refs/tags/${{ steps.meta.outputs.tag }}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --tags origin "refs/tags/${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Validate package
-        run: cargo package
-      - name: Run full test suite
-        run: cargo test
+
+      - name: Skip when already released
+        if: steps.tag.outputs.exists == 'true'
+        run: echo "Tag ${{ steps.meta.outputs.tag }} already exists. Nothing to release."
+
+      - name: Verify package
+        if: steps.tag.outputs.exists == 'false'
+        run: |
+          cargo package
+          cargo test
+
       - name: Publish to crates.io
-        if: ${{ inputs.publish }}
+        if: steps.tag.outputs.exists == 'false'
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish --locked --token "$CARGO_REGISTRY_TOKEN"
+
+      - name: Create and push tag
+        if: steps.tag.outputs.exists == 'false'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.meta.outputs.tag }}" -m "${{ steps.meta.outputs.tag }}"
+          git push origin "${{ steps.meta.outputs.tag }}"
+
+      - name: Create GitHub release
+        if: steps.tag.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --verify-tag \
+            --generate-notes
