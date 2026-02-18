@@ -1,20 +1,24 @@
 [package]
-name = "tui-textarea"
-version = "0.7.0"
+name = "tui-textarea-2"
+homepage = "https://github.com/srothgan/tui-textarea#readme"
+repository = "https://github.com/srothgan/tui-textarea"
+documentation = "https://docs.rs/tui-textarea-2/latest/tui_textarea/"
+version = "0.7.1"
 edition = "2021"
 rust-version = "1.56.1" # for `tui` crate support
-authors = ["rhysd <lin90162@yahoo.co.jp>"]
+authors = ["Simon Peter Rothgang <simonrothgang@icloud.com>", "rhysd <lin90162@yahoo.co.jp>"]
 description = """
 tui-textarea is a simple yet powerful text editor widget for ratatui and tui-rs. Multi-line
 text editor can be easily put as part of your TUI application.
 """
 license = "MIT"
-homepage = "https://github.com/rhysd/tui-textarea#readme"
-repository = "https://github.com/rhysd/tui-textarea"
 readme = "README.md"
 categories = ["text-editors", "text-processing"]
 keywords = ["tui", "textarea", "editor", "input", "ratatui"]
 include = ["/src", "/examples", "/tests", "/README.md", "/LICENSE.txt"]
+
+[lib]
+name = "tui_textarea"
 
 [features]
 default = ["crossterm"]

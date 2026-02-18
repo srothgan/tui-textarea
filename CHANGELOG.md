@@ -1,3 +1,13 @@
+<a id="v0.7.1"></a>
+# [v0.7.1](https://github.com/srothgan/tui-textarea/releases/tag/v0.7.1) - 2026-02-18
+
+- Update compatibility for [ratatui](https://ratatui.rs/) v0.30.0.
+- Publish maintained fork under `srothgan/tui-textarea`.
+- Rename published crate to `tui-textarea-2`.
+- Add CI/collaboration baseline (workflows, templates, contributing guide).
+
+[Changes][v0.7.1]
+
 <a id="v0.7.0"></a>
 # [v0.7.0](https://github.com/rhysd/tui-textarea/releases/tag/v0.7.0) - 2024-10-22
 
@@ -439,7 +449,7 @@ First release :tada:
 
 [Changes][v0.1.0]
 
-
+[v0.7.1]: https://github.com/srothgan/tui-textarea/compare/v0.7.0...v0.7.1
 [v0.7.0]: https://github.com/rhysd/tui-textarea/compare/v0.6.1...v0.7.0
 [v0.6.1]: https://github.com/rhysd/tui-textarea/compare/v0.6.0...v0.6.1
 [v0.6.0]: https://github.com/rhysd/tui-textarea/compare/v0.5.3...v0.6.0

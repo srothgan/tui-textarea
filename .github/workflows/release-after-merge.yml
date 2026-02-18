@@ -1,0 +1,103 @@
+name: Release After Merge
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - Cargo.toml
+      - CHANGELOG.md
+      - bench/Cargo.toml
+      - .github/workflows/release-after-merge.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Read version and tag
+        id: meta
+        shell: bash
+        run: |
+          version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+          if [[ -z "$version" ]]; then
+            echo "Unable to parse version from Cargo.toml"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether tag already exists
+        id: tag
+        shell: bash
+        run: |
+          if git rev-parse -q --verify "refs/tags/${{ steps.meta.outputs.tag }}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --tags origin "refs/tags/${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip when already released
+        if: steps.tag.outputs.exists == 'true'
+        run: echo "Tag ${{ steps.meta.outputs.tag }} already exists. Nothing to release."
+
+      - name: Verify package
+        if: steps.tag.outputs.exists == 'false'
+        run: |
+          cargo package
+          cargo test
+
+      - name: Authenticate to crates.io (trusted publishing)
+        if: steps.tag.outputs.exists == 'false' && secrets.CARGO_REGISTRY_TOKEN == ''
+        id: crates_auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish with static token
+        if: steps.tag.outputs.exists == 'false' && secrets.CARGO_REGISTRY_TOKEN != ''
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --locked --token "$CARGO_REGISTRY_TOKEN"
+
+      - name: Publish with trusted publishing token
+        if: steps.tag.outputs.exists == 'false' && secrets.CARGO_REGISTRY_TOKEN == ''
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates_auth.outputs.token }}
+        run: cargo publish --locked --token "$CARGO_REGISTRY_TOKEN"
+
+      - name: Create and push tag
+        if: steps.tag.outputs.exists == 'false'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.meta.outputs.tag }}" -m "${{ steps.meta.outputs.tag }}"
+          git push origin "${{ steps.meta.outputs.tag }}"
+
+      - name: Create GitHub release
+        if: steps.tag.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.meta.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --verify-tag \
+            --generate-notes
