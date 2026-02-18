@@ -2,25 +2,13 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use tui_textarea::{CursorMove, TextArea};
 use tui_textarea_bench::{dummy_terminal, TerminalExt, LOREM};
 
-#[derive(Clone, Copy)]
-enum Kind {
-    Char,
-    Word,
-    Line,
-}
-
 #[inline]
-fn run(textarea: &TextArea<'_>, kind: Kind) {
+fn run(textarea: &TextArea<'_>) {
     let mut term = dummy_terminal();
     let mut t = textarea.clone();
     t.move_cursor(CursorMove::Jump(u16::MAX, u16::MAX));
     for _ in 0..100 {
-        let modified = match kind {
-            Kind::Char => t.delete_char(),
-            Kind::Word => t.delete_word(),
-            Kind::Line => t.delete_line_by_head(),
-        };
-        if !modified {
+        if !t.delete_line_by_head() {
             t = textarea.clone();
             t.move_cursor(CursorMove::Jump(u16::MAX, u16::MAX));
         }
@@ -34,11 +22,8 @@ fn bench(c: &mut Criterion) {
         lines.extend(LOREM.iter().map(|s| s.to_string()));
     }
     let textarea = TextArea::new(lines);
-
-    c.bench_function("delete::char", |b| b.iter(|| run(&textarea, Kind::Char)));
-    c.bench_function("delete::word", |b| b.iter(|| run(&textarea, Kind::Word)));
-    c.bench_function("delete::line", |b| b.iter(|| run(&textarea, Kind::Line)));
+    c.bench_function("delete::line", |b| b.iter(|| run(&textarea)));
 }
 
-criterion_group!(delete, bench);
-criterion_main!(delete);
+criterion_group!(delete_line, bench);
+criterion_main!(delete_line);
