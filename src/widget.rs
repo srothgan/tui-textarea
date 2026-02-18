@@ -6,6 +6,7 @@ use crate::textarea::TextArea;
 use crate::util::num_digits;
 #[cfg(feature = "ratatui")]
 use ratatui_core::text::Line;
+use unicode_width::UnicodeWidthChar;
 use std::cmp;
 use portable_atomic::{AtomicU64, Ordering};
 #[cfg(feature = "tuirs")]
@@ -114,7 +115,15 @@ impl<'a> TextArea<'a> {
     }
 
     fn scroll_top_col(&self, prev_top: u16, width: u16) -> u16 {
-        let mut cursor = self.cursor().1 as u16;
+        let (row, col) = self.cursor();
+
+        // Adujst the cursor position due to the width of non-latine characters.
+        let mut cursor = self.lines()[row]
+            .chars()
+            .take(col)
+            .map(|c| c.width().unwrap_or(0))
+            .sum::<usize>() as u16;
+
         // Adjust the cursor position due to the width of line number.
         if self.line_number_style().is_some() {
             let lnum = num_digits(self.lines().len()) as u16 + 2; // `+ 2` for margins
