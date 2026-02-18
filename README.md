@@ -2,7 +2,8 @@ tui-textarea-2
 ============
 [![crate][crates-io-badge]][crate]
 [![docs][doc-badge]][doc]
-[![CI][ci-badge]][ci]
+[![Rust Test][test-badge]][test]
+[![Rust Clippy][clippy-badge]][clippy]
 [![coverage][codecov-badge]][codecov]
 
 [tui-textarea-2][crate] is a simple yet powerful text editor widget like <textarea> in HTML for [ratatui][] and [tui-rs][].
@@ -718,8 +719,10 @@ tui-textarea-2 is distributed under [The MIT License](./LICENSE).
 [crate]: https://crates.io/crates/tui-textarea-2
 [doc-badge]: https://docs.rs/tui-textarea-2/badge.svg
 [doc]: https://docs.rs/tui-textarea-2/latest/tui_textarea/
-[ci-badge]: https://github.com/srothgan/tui-textarea/actions/workflows/ci.yml/badge.svg?event=push
-[ci]: https://github.com/srothgan/tui-textarea/actions/workflows/ci.yml
+[test-badge]: https://github.com/srothgan/tui-textarea/actions/workflows/test.yml/badge.svg?event=push
+[test]: https://github.com/srothgan/tui-textarea/actions/workflows/test.yml
+[clippy-badge]: https://github.com/srothgan/tui-textarea/actions/workflows/clippy.yml/badge.svg?event=push
+[clippy]: https://github.com/srothgan/tui-textarea/actions/workflows/clippy.yml
 [codecov-badge]: https://codecov.io/gh/srothgan/tui-textarea/graph/badge.svg
 [codecov]: https://codecov.io/gh/srothgan/tui-textarea
 [tui-rs]: https://github.com/fdehau/tui-rs
