@@ -1,110 +1,24 @@
-## Reporting an issue
+# Contributing
 
-For reporting a bug, please make sure your report includes the following points.
+## Workflow
+- Work from short-lived branches (`feature/*`, `fix/*`, `chore/*`).
+- Open a pull request into `main`.
+- Keep each PR focused and reviewable.
 
-- How to reproduce it
-  - What text the textarea contained as pre-condition
-  - What operations you did
-  - What was the expected behavior
-  - What was the actual behavior
-- Environment
-  - Your terminal
-  - Rust version
-  - `ratatui` or `tui` crate version
-  - Enabled features of `tui-textarea` crate
+## Quality Bar
+- `cargo fmt --check` must pass.
+- `cargo clippy --all-targets -- -D warnings` must pass.
+- `cargo check` and `cargo test` must pass.
+- Do not use `--all-features` for this crate because backend feature sets are mutually exclusive.
 
-An example of bug report: https://github.com/rhysd/tui-textarea/issues/1
+## Reviews
+- At least one approval is required before merge.
+- Keep PR descriptions explicit about behavior changes and compatibility impact.
 
-## Submitting a pull request
+## Dependency Changes
+- Prefer patch/minor updates in batches.
+- Handle major updates one crate at a time with tests after each update.
 
-Please ensure that all tests and linter checks passed on your branch before creating a PR which modifies some source files.
-
-To run tests:
-
-```sh
-cargo test --features=search
-```
-
-To run linters:
-
-```sh
-cargo clippy --features=search,termwiz,termion --tests --examples
-cargo clippy --features=tuirs-crossterm,tuirs-termion,search --no-default-features --tests --examples
-cargo fmt -- --check
-```
-
-Note: On Windows, remove `termion` and `tuirs-termion` features from `--features` argument since termion doesn't support Windows.
-
-If you use [cargo-watch][], `cargo watch-check` and `cargo watch-test` aliases are useful to run checks/tests automatically
-on files being changed.
-
-### Code coverage
-
-Code coverage is monitored on [codecov][].
-
-https://app.codecov.io/gh/rhysd/tui-textarea
-
-When you implement some new feature, consider to add new unit tests which cover your implementation.
-
-## Print debugging
-
-Since this crate uses stdout, `println!` is not available for debugging. Instead, stderr through [`eprintln!`][eprintln]
-or [`dbg!`][dbg] are useful.
-
-At first, add prints where you want to debug:
-
-```rust
-eprintln!("some value is {:?}", some_value);
-dbg!(&some_value);
-```
-
-Then redirect stderr to some file:
-
-```sh
-cargo run --example minimal 2>debug.txt
-```
-
-Then the debug prints are output to the `debug.txt` file. If timing is important or you want to see the output in real-time,
-it would be useful to monitor the file content with `tail` command in another terminal window.
-
-```sh
-# In a terminal, reproduce the issue
-cargo run --example minimal 2>debug.txt
-
-# In another terminal, run `tail` command to monitor the content
-tail -F debug.txt
-```
-
-## Running a fuzzer
-
-To run fuzzing tests, [cargo-fuzz][] and Rust nightly toolchain are necessary.
-
-```sh
-# Show list of fuzzing targets
-cargo +nightly fuzz list
-
-# Run 'edit' fuzzing test case
-cargo +nightly fuzz run edit
-```
-
-## Running benchmark suites
-
-Benchmarks are available using [Criterion.rs][criterion].
-
-To separate `criterion` crate dependency, benchmark suites are separated as another crate in [bench/](./bench).
-
-To run benchmarks:
-
-```sh
-cd ./bench
-cargo bench --benches
-```
-
-See [README in bench/](./bench/README.md) for more details.
-
-[cargo-watch]: https://crates.io/crates/cargo-watch
-[cargo-fuzz]: https://github.com/rust-fuzz/cargo-fuzz
-[criterion]: https://github.com/bheisler/criterion.rs
-[eprintln]: https://doc.rust-lang.org/std/macro.eprintln.html
-[dbg]: https://doc.rust-lang.org/std/macro.dbg.html
-[codecov]: https://about.codecov.io/
+## Commit Messages
+- Use clear, imperative commit messages.
+- Mention external references where relevant (for example `upstream PR #118`).

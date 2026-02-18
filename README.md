@@ -729,3 +729,4 @@ tui-textarea is distributed under [The MIT License](./LICENSE.txt).
 [regex]: https://docs.rs/regex/latest/regex/
 [serde]: https://crates.io/crates/serde
 [serde_json]: https://crates.io/crates/serde_json
+> Maintained fork notice: this repository is maintained under `srothgan/tui-textarea` to keep compatibility updates moving (including ratatui 0.30+ support and maintenance fixes).
