@@ -1,12 +1,14 @@
-tui-textarea
+tui-textarea-2
 ============
 [![crate][crates-io-badge]][crate]
 [![docs][doc-badge]][doc]
 [![CI][ci-badge]][ci]
 [![coverage][codecov-badge]][codecov]
 
-[tui-textarea][crate] is a simple yet powerful text editor widget like `<textarea>` in HTML for [ratatui][] and [tui-rs][].
+[tui-textarea-2][crate] is a simple yet powerful text editor widget like <textarea> in HTML for [ratatui][] and [tui-rs][].
 Multi-line text editor can be easily put as part of your TUI application.
+
+> Maintained fork notice: this repository is maintained under `srothgan/tui-textarea` to keep compatibility updates moving (including ratatui 0.30+ support and maintenance fixes).
 
 **Features:**
 
@@ -146,7 +148,7 @@ Add `tui-textarea` crate to dependencies in your `Cargo.toml`. This enables cros
 ```toml
 [dependencies]
 ratatui = "*"
-tui-textarea = "*"
+tui-textarea = { package = "tui-textarea-2", version = "*" }
 ```
 
 If you need text search with regular expressions, enable `search` feature. It adds [regex crate][regex] as dependency.
@@ -154,7 +156,7 @@ If you need text search with regular expressions, enable `search` feature. It ad
 ```toml
 [dependencies]
 ratatui = "*"
-tui-textarea = { version = "*", features = ["search"] }
+tui-textarea = { package = "tui-textarea-2", version = "*", features = ["search"] }
 ```
 
 If you're using ratatui with [termion][] or [termwiz][], enable the `termion` or `termwiz` feature instead of
@@ -165,11 +167,11 @@ If you're using ratatui with [termion][] or [termwiz][], enable the `termion` or
 
 # For termion
 ratatui = { version = "*", default-features = false, features = ["termion"] }
-tui-textarea = { version = "*", default-features = false, features = ["termion"] }
+tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["termion"] }
 
 # For termwiz
 ratatui = { version = "*", default-features = false, features = ["termwiz"] }
-tui-textarea = { version = "*", default-features = false, features = ["termwiz"] }
+tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["termwiz"] }
 ```
 
 If you're using [tui-rs][] instead of [ratatui][], you need to enable features for using tui-rs crate and to disable
@@ -185,7 +187,7 @@ For example, when you want to use the combination of [tui-rs][] and [crossterm][
 ```toml
 [dependencies]
 tui = "*"
-tui-textarea = { version = "*", features = ["tuirs-crossterm"], default-features = false }
+tui-textarea = { package = "tui-textarea-2", version = "*", features = ["tuirs-crossterm"], default-features = false }
 ```
 
 Note that [ratatui][] support and [tui-rs][] support are exclusive. When you use [tui-rs][] support, you must disable
@@ -432,7 +434,7 @@ To use text search, `search` feature needs to be enabled in your `Cargo.toml`. I
 depending on `regex` crate until it is necessary.
 
 ```toml
-tui-textarea = { version = "*", features = ["search"] }
+tui-textarea = { package = "tui-textarea-2", version = "*", features = ["search"] }
 ```
 
 ## Advanced Usage
@@ -540,9 +542,9 @@ tui-textarea supports it as well. Please use `no-backend` feature for [ratatui][
 ```toml
 [dependencies]
 # For ratatui
-tui-textarea = { version = "*", default-features = false, features = ["no-backend"] }
+tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["no-backend"] }
 # For tui-rs
-tui-textarea = { version = "*", default-features = false, features = ["tuirs-no-backend"] }
+tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["tuirs-no-backend"] }
 ```
 
 `tui_textarea::Input` is a type for backend-agnostic key input. What you need to do is converting key event in your own
@@ -649,7 +651,7 @@ This crate optionally supports [serde][] crate by enabling `serde` feature.
 
 ```toml
 [dependencies]
-tui-textarea = { version = "*", features = ["serde"] }
+tui-textarea = { package = "tui-textarea-2", version = "*", features = ["serde"] }
 ```
 
 Values of the following types can be serialized/deserialized:
@@ -696,7 +698,7 @@ as follows:
 - Minor: Bump on breaking change
 - Patch: Bump on new feature or bug fix
 
-## Contributing to tui-textarea
+## Contributing to tui-textarea-2
 
 This project is developed [on GitHub][repo].
 
@@ -707,26 +709,25 @@ Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before reporting an issue or ma
 
 ## License
 
-tui-textarea is distributed under [The MIT License](./LICENSE.txt).
+tui-textarea-2 is distributed under [The MIT License](./LICENSE.txt).
 
-[crates-io-badge]: https://img.shields.io/crates/v/tui-textarea.svg
-[crate]: https://crates.io/crates/tui-textarea
-[doc-badge]: https://docs.rs/tui-textarea/badge.svg
-[doc]: https://docs.rs/tui-textarea/latest/tui_textarea/
-[ci-badge]: https://github.com/rhysd/tui-textarea/actions/workflows/ci.yml/badge.svg?event=push
-[ci]: https://github.com/rhysd/tui-textarea/actions/workflows/ci.yml
-[codecov-badge]: https://codecov.io/gh/rhysd/tui-textarea/graph/badge.svg?token=YAA3EVRXAY
-[codecov]: https://codecov.io/gh/rhysd/tui-textarea
+[crates-io-badge]: https://img.shields.io/crates/v/tui-textarea-2.svg
+[crate]: https://crates.io/crates/tui-textarea-2
+[doc-badge]: https://docs.rs/tui-textarea-2/badge.svg
+[doc]: https://docs.rs/tui-textarea-2/latest/tui_textarea/
+[ci-badge]: https://github.com/srothgan/tui-textarea/actions/workflows/ci.yml/badge.svg?event=push
+[ci]: https://github.com/srothgan/tui-textarea/actions/workflows/ci.yml
+[codecov-badge]: https://codecov.io/gh/srothgan/tui-textarea/graph/badge.svg
+[codecov]: https://codecov.io/gh/srothgan/tui-textarea
 [tui-rs]: https://github.com/fdehau/tui-rs
 [ratatui]: https://github.com/ratatui/ratatui
 [crossterm]: https://docs.rs/crossterm/latest/crossterm/
 [termion]: https://docs.rs/termion/latest/termion/
 [termwiz]: https://docs.rs/termwiz/latest/termwiz/
 [ratatui-backend]: https://docs.rs/ratatui/latest/ratatui/backend/trait.Backend.html
-[repo]: https://github.com/rhysd/tui-textarea
-[new-issue]: https://github.com/rhysd/tui-textarea/issues/new
-[pulls]: https://github.com/rhysd/tui-textarea/pulls
+[repo]: https://github.com/srothgan/tui-textarea
+[new-issue]: https://github.com/srothgan/tui-textarea/issues/new
+[pulls]: https://github.com/srothgan/tui-textarea/pulls
 [regex]: https://docs.rs/regex/latest/regex/
 [serde]: https://crates.io/crates/serde
 [serde_json]: https://crates.io/crates/serde_json
-> Maintained fork notice: this repository is maintained under `srothgan/tui-textarea` to keep compatibility updates moving (including ratatui 0.30+ support and maintenance fixes).
