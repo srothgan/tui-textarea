@@ -7,7 +7,7 @@ use ratatui::layout::{Position, Size};
 use ratatui::prelude::backend::ClearType;
 use ratatui::Terminal;
 use std::io;
-use tui_textarea::TextArea;
+use tui_textarea::{CursorMove, TextArea};
 
 pub const LOREM: &[&str] = &[
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do",
@@ -137,4 +137,56 @@ impl TerminalExt for Terminal<DummyBackend> {
     fn draw_textarea(&mut self, textarea: &TextArea<'_>) {
         self.draw(|f| f.render_widget(textarea, f.area())).unwrap();
     }
+}
+
+// --- Cursor benchmark helpers ---
+
+#[derive(Clone, Copy)]
+pub enum Restore {
+    TopLeft,
+    BottomLeft,
+    BottomRight,
+    None,
+}
+
+impl Restore {
+    pub fn cursor_move(self) -> Option<CursorMove> {
+        match self {
+            Self::TopLeft => Some(CursorMove::Jump(0, 0)),
+            Self::BottomLeft => Some(CursorMove::Jump(u16::MAX, 0)),
+            Self::BottomRight => Some(CursorMove::Jump(u16::MAX, u16::MAX)),
+            Self::None => None,
+        }
+    }
+}
+
+pub fn prepare_cursor_textarea() -> TextArea<'static> {
+    let mut lines = Vec::with_capacity(LOREM.len() * 2 + 1);
+    lines.extend(LOREM.iter().map(|s| s.to_string()));
+    lines.push("".to_string());
+    lines.extend(LOREM.iter().map(|s| s.to_string()));
+    TextArea::new(lines)
+}
+
+pub fn run_cursor(
+    mut textarea: TextArea<'_>,
+    moves: &[CursorMove],
+    restore: Restore,
+    repeat: usize,
+) -> (usize, usize) {
+    let mut term = dummy_terminal();
+    let mut prev = textarea.cursor();
+    for _ in 0..repeat {
+        for m in moves {
+            textarea.move_cursor(*m);
+            term.draw_textarea(&textarea);
+        }
+        if let Some(m) = restore.cursor_move() {
+            if textarea.cursor() == prev {
+                textarea.move_cursor(m);
+                prev = textarea.cursor();
+            }
+        }
+    }
+    textarea.cursor()
 }

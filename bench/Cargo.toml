@@ -8,26 +8,70 @@ license = "MIT"
 [lib]
 bench = false
 
+[[bin]]
+name = "runner"
+path = "src/bin/runner.rs"
+
 [dependencies]
 tui-textarea = { package = "tui-textarea-2", path = "..", features = ["no-backend", "search"] }
 ratatui = { version = "0.30.0", default-features = false }
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8.2"
 rand = { version = "0.8.5", features = ["small_rng"] }
 
 [[bench]]
-name = "insert"
+name = "insert_append"
 harness = false
 
 [[bench]]
-name = "search"
+name = "insert_random"
 harness = false
 
 [[bench]]
-name = "cursor"
+name = "insert_long"
 harness = false
 
 [[bench]]
-name = "delete"
+name = "search_forward"
+harness = false
+
+[[bench]]
+name = "search_backward"
+harness = false
+
+[[bench]]
+name = "cursor_char"
+harness = false
+
+[[bench]]
+name = "cursor_word"
+harness = false
+
+[[bench]]
+name = "cursor_paragraph"
+harness = false
+
+[[bench]]
+name = "cursor_edge"
+harness = false
+
+[[bench]]
+name = "delete_char"
+harness = false
+
+[[bench]]
+name = "delete_word"
+harness = false
+
+[[bench]]
+name = "delete_line"
+harness = false
+
+[[bench]]
+name = "wrap_render"
+harness = false
+
+[[bench]]
+name = "undo_redo"
 harness = false
