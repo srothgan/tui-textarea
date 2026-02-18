@@ -7,9 +7,9 @@
 
 ## Quality Bar
 - `cargo fmt --check` must pass.
-- `cargo clippy --all-targets --all-features -- -D warnings` must pass in Linux CI.
-- `cargo check --all-features` and `cargo test --all-features` must pass in Linux CI.
-- On Windows local development, use default-feature checks (`cargo check` and `cargo test`) because `termion` is Unix-only.
+- `cargo clippy --all-targets -- -D warnings` must pass.
+- `cargo check` and `cargo test` must pass.
+- Do not use `--all-features` for this crate because backend feature sets are mutually exclusive.
 
 ## Reviews
 - At least one approval is required before merge.

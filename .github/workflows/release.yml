@@ -39,7 +39,7 @@ jobs:
       - name: Validate package
         run: cargo package
       - name: Run full test suite
-        run: cargo test --all-features
+        run: cargo test
       - name: Publish to crates.io
         if: ${{ inputs.publish }}
         env:
