@@ -15,7 +15,7 @@ license = "MIT"
 readme = "README.md"
 categories = ["text-editors", "text-processing"]
 keywords = ["tui", "textarea", "editor", "input", "ratatui"]
-include = ["/src", "/examples", "/tests", "/README.md", "/LICENSE.txt"]
+include = ["/src", "/examples", "/tests", "/README.md", "/LICENSE"]
 
 [lib]
 name = "tui_textarea"

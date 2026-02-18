@@ -712,7 +712,7 @@ Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before reporting an issue or ma
 
 ## License
 
-tui-textarea-2 is distributed under [The MIT License](./LICENSE.txt).
+tui-textarea-2 is distributed under [The MIT License](./LICENSE).
 
 [crates-io-badge]: https://img.shields.io/crates/v/tui-textarea-2.svg
 [crate]: https://crates.io/crates/tui-textarea-2
