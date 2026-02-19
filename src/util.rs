@@ -4,7 +4,7 @@ pub fn spaces(size: u8) -> &'static str {
 }
 
 pub fn num_digits(i: usize) -> u8 {
-    f64::log10(i as f64) as u8 + 1
+    if i == 0 { 1 } else { i.ilog10() as u8 + 1 }
 }
 
 #[derive(Debug, Clone)]

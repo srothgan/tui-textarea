@@ -1,3 +1,14 @@
+<a id="v0.9.2"></a>
+# [v0.9.2](https://github.com/srothgan/tui-textarea/releases/tag/v0.9.2) - 2026-02-19
+
+- Migrate to Rust 2024 edition; bump `rust-version` to `1.85.0`.
+- Replace floating-point `num_digits` with `usize::ilog10` for correctness on large values.
+- Expand `watch-check` alias to cover `crossterm_0_28`, `no-backend`, `tuirs-crossterm`, `tuirs-no-backend`, `serde`, and `arbitrary` feature paths.
+- Expand `watch-test` alias to cover `crossterm_0_28`, `tuirs-crossterm`, `serde`, and `arbitrary` features.
+- Expand CI test and clippy workflows to full feature matrix including `termion` and `tuirs-termion` on Ubuntu.
+
+[Changes][v0.9.2]
+
 <a id="v0.9.1"></a>
 # [v0.9.1](https://github.com/srothgan/tui-textarea/releases/tag/v0.9.1) - 2026-02-18
 

@@ -3,12 +3,12 @@ use crossterm_025 as crossterm;
 
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use std::io;
+use tui::Terminal;
 use tui::backend::CrosstermBackend;
 use tui::widgets::{Block, Borders};
-use tui::Terminal;
 use tui_textarea::{Input, Key, TextArea};
 
 fn main() -> io::Result<()> {

@@ -8,12 +8,12 @@ use crate::ratatui::widgets::{Block, Widget};
 use crate::scroll::Scrolling;
 #[cfg(feature = "search")]
 use crate::search::Search;
-use crate::util::{num_digits, spaces, Pos};
+use crate::util::{Pos, num_digits, spaces};
 use crate::widget::Viewport;
 use crate::word::{find_word_exclusive_end_forward, find_word_start_backward};
 use crate::wrap::{
-    cursor_at_visual_row, cursor_visual_row, effective_wrap_width, wrapped_rows, WrapMode,
-    WrappedLine,
+    WrapMode, WrappedLine, cursor_at_visual_row, cursor_visual_row, effective_wrap_width,
+    wrapped_rows,
 };
 #[cfg(feature = "ratatui")]
 use ratatui_core::text::Line;
@@ -889,10 +889,12 @@ impl<'a> TextArea<'a> {
             return;
         }
 
-        let mut deleted = vec![self.lines[start.row]
-            .drain(start.offset..)
-            .as_str()
-            .to_string()];
+        let mut deleted = vec![
+            self.lines[start.row]
+                .drain(start.offset..)
+                .as_str()
+                .to_string(),
+        ];
         deleted.extend(self.lines.drain(start.row + 1..end.row));
         if start.row + 1 < self.lines.len() {
             let mut last_line = self.lines.remove(start.row + 1);
