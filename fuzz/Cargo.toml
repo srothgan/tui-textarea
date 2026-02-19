@@ -11,7 +11,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
-tui-textarea = { path = "..", features = ["search", "arbitrary"] }
+tui-textarea = { package = "tui-textarea-2", path = "..", features = ["search", "arbitrary"] }
 tui-textarea-bench = { path = "../bench" }
 
 # Prevent this from interfering with workspaces
@@ -27,5 +27,29 @@ doc = false
 [[bin]]
 name = "insert_delete"
 path = "fuzz_targets/insert_delete.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "undo_redo"
+path = "fuzz_targets/undo_redo.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "selection"
+path = "fuzz_targets/selection.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "wrap_render"
+path = "fuzz_targets/wrap_render.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "search"
+path = "fuzz_targets/search.rs"
 test = false
 doc = false
