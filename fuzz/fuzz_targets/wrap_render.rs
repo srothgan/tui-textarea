@@ -2,30 +2,8 @@
 
 use arbitrary::{Arbitrary, Result, Unstructured};
 use libfuzzer_sys::fuzz_target;
-use std::str;
-use tui_textarea::{CursorMove, Input, TextArea};
+use tui_textarea::{CursorMove, TextArea, WrapMode};
 use tui_textarea_bench::{dummy_terminal, TerminalExt};
-
-#[derive(Arbitrary)]
-enum RandomInput {
-    Input(Input),
-    InputWithoutShortcuts(Input),
-    Cursor(CursorMove),
-}
-
-impl RandomInput {
-    fn apply(self, t: &mut TextArea<'_>) {
-        match self {
-            Self::Input(input) => {
-                t.input(input);
-            }
-            Self::InputWithoutShortcuts(input) => {
-                t.input_without_shortcuts(input);
-            }
-            Self::Cursor(m) => t.move_cursor(m),
-        }
-    }
-}
 
 fn assert_invariants(textarea: &TextArea<'_>) {
     let lines = textarea.lines();
@@ -46,13 +24,28 @@ fn assert_invariants(textarea: &TextArea<'_>) {
 fn fuzz(data: &[u8]) -> Result<()> {
     let mut term = dummy_terminal();
     let mut data = Unstructured::new(data);
+
     let text = <&str>::arbitrary(&mut data)?;
+    let wrap_mode = WrapMode::arbitrary(&mut data)?;
+    let width: u16 = *data.choose(&[1, 4, 10, 40, 80, 200])?;
+
+    term.backend_mut().resize(width, 12);
+
     let mut textarea = TextArea::from(text.lines());
+    textarea.set_wrap_mode(wrap_mode);
+
     for _ in 0..100 {
-        let input = RandomInput::arbitrary(&mut data)?;
-        input.apply(&mut textarea);
+        let m = CursorMove::arbitrary(&mut data)?;
+        textarea.move_cursor(m);
         term.draw_textarea(&textarea);
         assert_invariants(&textarea);
+
+        if bool::arbitrary(&mut data)? {
+            let s = <&str>::arbitrary(&mut data)?;
+            textarea.insert_str(s);
+            term.draw_textarea(&textarea);
+            assert_invariants(&textarea);
+        }
     }
     Ok(())
 }

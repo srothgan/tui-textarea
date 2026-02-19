@@ -123,6 +123,14 @@ impl Backend for DummyBackend {
     }
 }
 
+impl DummyBackend {
+    #[inline]
+    pub fn resize(&mut self, width: u16, height: u16) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 #[inline]
 pub fn dummy_terminal() -> Terminal<DummyBackend> {
     Terminal::new(DummyBackend::default()).unwrap()

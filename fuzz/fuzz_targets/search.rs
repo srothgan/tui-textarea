@@ -7,20 +7,12 @@ use tui_textarea_bench::{dummy_terminal, TerminalExt};
 
 #[derive(Arbitrary)]
 enum Op {
+    SetPattern(String),
+    SearchForward(bool),
+    SearchBack(bool),
     Move(CursorMove),
     InsertStr(String),
-    InsertChar(char),
-    InsertTab,
-    InsertNewline,
     DeleteStr(usize),
-    DeleteChar,
-    DeleteNextChar,
-    DeleteWord,
-    DeleteNextWord,
-    DeleteLineByEnd,
-    DeleteLineByHead,
-    DeleteNewline,
-    Clear,
 }
 
 fn assert_invariants(textarea: &TextArea<'_>) {
@@ -41,45 +33,27 @@ fn assert_invariants(textarea: &TextArea<'_>) {
 
 fn fuzz(data: &[u8]) -> Result<()> {
     let mut term = dummy_terminal();
-    let mut textarea = TextArea::default();
     let mut data = Unstructured::new(data);
+    let text = <&str>::arbitrary(&mut data)?;
+    let mut textarea = TextArea::from(text.lines());
+
     for _ in 0..100 {
         match Op::arbitrary(&mut data)? {
+            Op::SetPattern(pat) => {
+                let _ = textarea.set_search_pattern(&pat);
+            }
+            Op::SearchForward(match_cursor) => {
+                textarea.search_forward(match_cursor);
+            }
+            Op::SearchBack(match_cursor) => {
+                textarea.search_back(match_cursor);
+            }
             Op::Move(m) => textarea.move_cursor(m),
             Op::InsertStr(s) => {
                 textarea.insert_str(s);
             }
-            Op::InsertChar(c) => textarea.insert_char(c),
-            Op::InsertTab => {
-                textarea.insert_tab();
-            }
-            Op::InsertNewline => textarea.insert_newline(),
             Op::DeleteStr(n) => {
                 textarea.delete_str(n);
-            }
-            Op::DeleteChar => {
-                textarea.delete_char();
-            }
-            Op::DeleteNextChar => {
-                textarea.delete_next_char();
-            }
-            Op::DeleteWord => {
-                textarea.delete_word();
-            }
-            Op::DeleteNextWord => {
-                textarea.delete_next_word();
-            }
-            Op::DeleteLineByEnd => {
-                textarea.delete_line_by_end();
-            }
-            Op::DeleteLineByHead => {
-                textarea.delete_line_by_head();
-            }
-            Op::DeleteNewline => {
-                textarea.delete_newline();
-            }
-            Op::Clear => {
-                textarea.clear();
             }
         }
         term.draw_textarea(&textarea);
