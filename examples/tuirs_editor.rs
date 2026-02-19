@@ -3,7 +3,7 @@ use crossterm_025 as crossterm;
 
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use std::borrow::Cow;
 use std::env;
@@ -12,12 +12,12 @@ use std::fs;
 use std::io;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
+use tui::Terminal;
 use tui::backend::CrosstermBackend;
 use tui::layout::{Constraint, Direction, Layout};
 use tui::style::{Color, Modifier, Style};
 use tui::text::{Span, Spans};
 use tui::widgets::{Block, Borders, Paragraph};
-use tui::Terminal;
 use tui_textarea::{CursorMove, Input, Key, TextArea};
 
 macro_rules! error {
@@ -56,11 +56,7 @@ impl SearchBox<'_> {
     }
 
     fn height(&self) -> u16 {
-        if self.open {
-            3
-        } else {
-            0
-        }
+        if self.open { 3 } else { 0 }
     }
 
     fn input(&mut self, input: Input) -> Option<&'_ str> {

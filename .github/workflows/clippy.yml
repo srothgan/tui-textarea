@@ -8,12 +8,32 @@ on:
 
 jobs:
   cargo-clippy:
-    name: cargo clippy --all-targets -- -D warnings
+    name: cargo clippy (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "default"
+            args: "--all-targets"
+          - name: "crossterm+termwiz+extras"
+            args: "--features=search,termwiz,serde,arbitrary --all-targets"
+          - name: "crossterm_0_28"
+            args: "--no-default-features --features=crossterm_0_28,search,serde,arbitrary --all-targets"
+          - name: "termion"
+            args: "--no-default-features --features=termion,search,serde,arbitrary --all-targets"
+          - name: "no-backend"
+            args: "--no-default-features --features=no-backend,search,serde,arbitrary --all-targets"
+          - name: "tuirs-crossterm"
+            args: "--no-default-features --features=tuirs-crossterm,search,serde,arbitrary --all-targets"
+          - name: "tuirs-termion"
+            args: "--no-default-features --features=tuirs-termion,search,serde,arbitrary --all-targets"
+          - name: "tuirs-no-backend"
+            args: "--no-default-features --features=tuirs-no-backend,search,serde,arbitrary --all-targets"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy ${{ matrix.args }} -- -D warnings

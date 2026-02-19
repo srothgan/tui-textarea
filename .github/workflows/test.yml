@@ -8,10 +8,26 @@ on:
 
 jobs:
   cargo-test:
-    name: cargo test
+    name: cargo test (${{ matrix.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "default"
+            args: ""
+          - name: "crossterm+termwiz+extras"
+            args: "--features=search,termwiz,serde,arbitrary"
+          - name: "crossterm_0_28"
+            args: "--no-default-features --features=crossterm_0_28,search,serde,arbitrary"
+          - name: "termion"
+            args: "--no-default-features --features=termion,search,serde,arbitrary"
+          - name: "tuirs-crossterm"
+            args: "--no-default-features --features=tuirs-crossterm,search,serde,arbitrary"
+          - name: "tuirs-termion"
+            args: "--no-default-features --features=tuirs-termion,search,serde,arbitrary"
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test
+      - run: cargo test ${{ matrix.args }}

@@ -4,7 +4,7 @@ use crate::ratatui::text::{Span, Text};
 use crate::ratatui::widgets::{Paragraph, Widget};
 use crate::textarea::TextArea;
 use crate::util::num_digits;
-use crate::wrap::{cursor_visual_row, effective_wrap_width, wrapped_rows, WrapMode};
+use crate::wrap::{WrapMode, cursor_visual_row, effective_wrap_width, wrapped_rows};
 use portable_atomic::{AtomicU64, Ordering};
 #[cfg(feature = "ratatui")]
 use ratatui_core::text::Line;

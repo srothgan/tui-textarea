@@ -3,9 +3,9 @@ name = "tui-textarea-2"
 homepage = "https://github.com/srothgan/tui-textarea#readme"
 repository = "https://github.com/srothgan/tui-textarea"
 documentation = "https://docs.rs/tui-textarea-2/latest/tui_textarea/"
-version = "0.9.1"
-edition = "2021"
-rust-version = "1.56.1" # for `tui` crate support
+version = "0.9.2"
+edition = "2024"
+rust-version = "1.85.0" # for Rust 2024 edition support
 authors = ["Simon Peter Rothgang <simonrothgang@icloud.com>", "rhysd <lin90162@yahoo.co.jp>"]
 description = """
 tui-textarea is a simple yet powerful text editor widget for ratatui and tui-rs. Multi-line

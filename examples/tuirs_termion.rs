@@ -10,9 +10,9 @@ use termion::event::Event as TermEvent;
 use termion::input::{MouseTerminal, TermRead};
 use termion::raw::IntoRawMode;
 use termion::screen::AlternateScreen;
+use tui::Terminal;
 use tui::backend::TermionBackend;
 use tui::widgets::{Block, Borders};
-use tui::Terminal;
 use tui_textarea::{Input, Key, TextArea};
 
 enum Event {
@@ -36,9 +36,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                 keys_tx.send(Event::Term(event)).unwrap();
             }
         });
-        thread::spawn(move || loop {
-            tx.send(Event::Tick).unwrap();
-            thread::sleep(Duration::from_millis(100));
+        thread::spawn(move || {
+            loop {
+                tx.send(Event::Tick).unwrap();
+                thread::sleep(Duration::from_millis(100));
+            }
         });
         rx
     };

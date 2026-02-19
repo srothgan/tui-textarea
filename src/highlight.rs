@@ -5,7 +5,6 @@ use crate::util::{num_digits, spaces};
 use ratatui_core::text::Line;
 use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::iter;
 #[cfg(feature = "tuirs")]
 use tui::text::Spans as Line;
 use unicode_width::UnicodeWidthChar as _;
@@ -64,7 +63,7 @@ impl DisplayTextBuilder {
     fn build<'s>(&mut self, s: &'s str) -> Cow<'s, str> {
         if let Some(ch) = self.mask {
             // Note: We don't need to track width on masking text since width of tab character is fixed
-            let masked = iter::repeat(ch).take(s.chars().count()).collect();
+            let masked = std::iter::repeat_n(ch, s.chars().count()).collect();
             return Cow::Owned(masked);
         }
 
@@ -100,7 +99,7 @@ impl DisplayTextBuilder {
 pub struct LineHighlighter<'a> {
     line: &'a str,
     spans: Vec<Span<'a>>,
-    boundaries: Vec<(Boundary, usize)>, // TODO: Consider smallvec
+    boundaries: Vec<(Boundary, usize)>,
     style_begin: Style,
     cursor_at_end: bool,
     cursor_style: Style,
