@@ -53,5 +53,5 @@ use termion_15 as termion;
 pub use cursor::CursorMove;
 pub use input::{Input, Key};
 pub use scroll::Scrolling;
-pub use textarea::TextArea;
+pub use textarea::{TextArea, TextAreaMeasure};
 pub use wrap::WrapMode;

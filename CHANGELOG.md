@@ -1,3 +1,15 @@
+<a id="v0.10.0"></a>
+# [v0.10.0](https://github.com/srothgan/tui-textarea/releases/tag/v0.10.0) - 2026-02-25
+
+- Add row-based measurement API via `TextArea::measure(width_cols)` and `TextAreaMeasure`.
+- Include content rows and preferred rows (with block chrome such as borders/padding) in measurement results.
+- Add configurable row bounds via `TextArea::set_min_rows` / `set_max_rows` with getters.
+- Clamp `preferred_rows` to effective `[min_rows, max_rows]` while keeping wrapping and viewport behavior unchanged.
+- Update the variable-height example to size from `measure().preferred_rows` instead of raw line count.
+- Add integration tests covering measurement semantics, wrapping/line-number effects, and min/max normalization.
+
+[Changes][v0.10.0]
+
 <a id="v0.9.2"></a>
 # [v0.9.2](https://github.com/srothgan/tui-textarea/releases/tag/v0.9.2) - 2026-02-19
 
@@ -495,6 +507,8 @@ First release :tada:
 
 [Changes][v0.1.0]
 
+[v0.10.0]: https://github.com/srothgan/tui-textarea/compare/v0.9.2...v0.10.0
+[v0.9.2]: https://github.com/srothgan/tui-textarea/compare/v0.9.1...v0.9.2
 [v0.9.1]: https://github.com/srothgan/tui-textarea/compare/v0.9.0...v0.9.1
 [v0.9.0]: https://github.com/srothgan/tui-textarea/compare/v0.8.0...v0.9.0
 [v0.8.0]: https://github.com/srothgan/tui-textarea/compare/v0.7.1...v0.8.0
