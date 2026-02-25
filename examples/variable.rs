@@ -29,7 +29,8 @@ fn main() -> io::Result<()> {
     loop {
         term.draw(|f| {
             const MIN_HEIGHT: usize = 3;
-            let height = cmp::max(textarea.lines().len(), MIN_HEIGHT) as u16 + 2; // + 2 for borders
+            let measure = textarea.measure(f.area().width);
+            let height = cmp::max(measure.preferred_rows as usize, MIN_HEIGHT) as u16;
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([Constraint::Length(height), Constraint::Min(0)])

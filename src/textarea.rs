@@ -2,7 +2,7 @@ use crate::cursor::CursorMove;
 use crate::highlight::LineHighlighter;
 use crate::history::{Edit, EditKind, History};
 use crate::input::{Input, Key};
-use crate::ratatui::layout::Alignment;
+use crate::ratatui::layout::{Alignment, Rect};
 use crate::ratatui::style::{Color, Modifier, Style};
 use crate::ratatui::widgets::{Block, Widget};
 use crate::scroll::Scrolling;
@@ -64,6 +64,19 @@ struct CustomHighlight {
     range: ((usize, usize), (usize, usize)),
     style: Style,
     priority: u8,
+}
+
+/// Measured textarea height information for a given width.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TextAreaMeasure {
+    /// Rows required by text content inside the block's inner area.
+    pub content_rows: u16,
+    /// Preferred total rows including internal chrome such as block borders and padding.
+    pub preferred_rows: u16,
+    /// Minimum meaningful rows for this configuration.
+    pub min_rows: u16,
+    /// Maximum rows allowed by the widget itself. Currently unbounded (`u16::MAX`).
+    pub max_rows: u16,
 }
 
 /// A type to manage state of textarea. These are some important methods:
@@ -132,6 +145,8 @@ pub struct TextArea<'a> {
     search: Search,
     alignment: Alignment,
     wrap_mode: WrapMode,
+    min_rows: u16,
+    max_rows: u16,
     pub(crate) placeholder: String,
     pub(crate) placeholder_style: Style,
     mask: Option<char>,
@@ -239,6 +254,8 @@ impl<'a> TextArea<'a> {
             search: Search::default(),
             alignment: Alignment::Left,
             wrap_mode: WrapMode::None,
+            min_rows: 1,
+            max_rows: u16::MAX,
             placeholder: String::new(),
             placeholder_style: Style::default().fg(Color::DarkGray),
             mask: None,
@@ -2344,6 +2361,99 @@ impl<'a> TextArea<'a> {
     /// Get the current soft-wrap mode.
     pub fn wrap_mode(&self) -> WrapMode {
         self.wrap_mode
+    }
+
+    /// Set the minimum preferred height in rows.
+    ///
+    /// The value is applied to measured outer rows (content + block chrome). Setting 0 is
+    /// normalized to 1. When the new minimum exceeds current maximum, maximum is raised to keep
+    /// `min_rows <= max_rows`.
+    pub fn set_min_rows(&mut self, rows: u16) {
+        self.min_rows = rows.max(1);
+        if self.max_rows < self.min_rows {
+            self.max_rows = self.min_rows;
+        }
+    }
+
+    /// Get the configured minimum preferred height in rows.
+    pub fn min_rows(&self) -> u16 {
+        self.min_rows
+    }
+
+    /// Set the maximum preferred height in rows.
+    ///
+    /// The value is applied to measured outer rows (content + block chrome). Setting 0 is
+    /// normalized to 1. When the new maximum is smaller than current minimum, maximum is raised
+    /// to the current minimum to keep `min_rows <= max_rows`.
+    pub fn set_max_rows(&mut self, rows: u16) {
+        self.max_rows = rows.max(1);
+        if self.max_rows < self.min_rows {
+            self.max_rows = self.min_rows;
+        }
+    }
+
+    /// Get the configured maximum preferred height in rows.
+    pub fn max_rows(&self) -> u16 {
+        self.max_rows
+    }
+
+    /// Measure textarea height in terminal rows for a given available width.
+    ///
+    /// `width_cols` is the outer width where the widget will be rendered. The returned
+    /// `preferred_rows` includes internal chrome (block borders/padding when configured).
+    ///
+    /// ```
+    /// use tui_textarea::{TextArea, WrapMode};
+    ///
+    /// let mut textarea = TextArea::from(["abcdef"]);
+    /// textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    ///
+    /// let m = textarea.measure(5);
+    /// assert_eq!(m.content_rows, 2);
+    /// assert_eq!(m.preferred_rows, 2);
+    /// ```
+    pub fn measure(&mut self, width_cols: u16) -> TextAreaMeasure {
+        let area = Rect {
+            x: 0,
+            y: 0,
+            width: width_cols,
+            height: u16::MAX,
+        };
+        let inner = if let Some(block) = self.block() {
+            block.inner(area)
+        } else {
+            area
+        };
+        let chrome_rows = area.height.saturating_sub(inner.height);
+        let content_rows = self.measure_content_rows(inner.width);
+        let intrinsic_min_rows = chrome_rows.saturating_add(1);
+        let min_rows = self.min_rows.max(intrinsic_min_rows);
+        let max_rows = self.max_rows.max(min_rows);
+        let unclamped_preferred_rows = content_rows.saturating_add(chrome_rows);
+        let preferred_rows = unclamped_preferred_rows.clamp(min_rows, max_rows);
+
+        TextAreaMeasure {
+            content_rows,
+            preferred_rows,
+            min_rows,
+            max_rows,
+        }
+    }
+
+    fn measure_content_rows(&self, width_cols: u16) -> u16 {
+        if !self.placeholder.is_empty() && self.is_empty() {
+            return 1;
+        }
+
+        let rows = if self.wrap_mode == WrapMode::None {
+            self.lines.len()
+        } else {
+            let line_number_len = self.line_number_style.map(|_| num_digits(self.lines.len()));
+            let wrap_width = effective_wrap_width(width_cols, line_number_len);
+            wrapped_rows(&self.lines, self.wrap_mode, wrap_width, self.tab_len).len()
+        };
+
+        rows.min(u16::MAX as usize) as u16
     }
 
     /// Check if the textarea has a empty content.
