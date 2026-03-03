@@ -109,7 +109,15 @@ pub(crate) fn cursor_at_visual_row(
     let wrapped = rows[visual_row.min(rows.len() - 1)];
     let line_len = lines[wrapped.row].chars().count();
     let mut col = cursor.1.min(line_len);
-    col = col.clamp(wrapped.start_col, wrapped.end_col);
+    // For non-last wrapped segments the end boundary is exclusive (end_col is the
+    // start_col of the next visual line), so clamp to end_col - 1 to stay on this
+    // visual row.
+    let max_col = if wrapped.last_in_row {
+        wrapped.end_col
+    } else {
+        wrapped.end_col.saturating_sub(1)
+    };
+    col = col.clamp(wrapped.start_col, max_col);
     (wrapped.row, col)
 }
 
