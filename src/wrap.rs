@@ -106,11 +106,28 @@ pub(crate) fn cursor_at_visual_row(
         return cursor;
     }
 
-    let wrapped = rows[visual_row.min(rows.len() - 1)];
-    let line_len = lines[wrapped.row].chars().count();
-    let mut col = cursor.1.min(line_len);
-    col = col.clamp(wrapped.start_col, wrapped.end_col);
-    (wrapped.row, col)
+    // Compute the visual column offset within the current visual row so we can
+    // preserve it when moving to the target row (straight up/down movement).
+    let current_visual = cursor_visual_row(rows, cursor);
+    let current_wrapped = rows[current_visual.min(rows.len() - 1)];
+    let visual_col_offset = cursor.1.saturating_sub(current_wrapped.start_col);
+
+    let target = rows[visual_row.min(rows.len() - 1)];
+    let line_len = lines[target.row].chars().count();
+
+    // Apply the visual offset to the target row's start column.
+    let target_col = target.start_col + visual_col_offset;
+
+    // For non-last wrapped segments the end boundary is exclusive (end_col is the
+    // start_col of the next visual line), so clamp to end_col - 1 to stay on this
+    // visual row.
+    let max_col = if target.last_in_row {
+        target.end_col
+    } else {
+        target.end_col.saturating_sub(1)
+    };
+    let col = target_col.min(line_len).clamp(target.start_col, max_col);
+    (target.row, col)
 }
 
 pub(crate) fn line_ranges(

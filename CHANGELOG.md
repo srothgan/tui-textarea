@@ -1,3 +1,12 @@
+<a id="v0.10.1"></a>
+# [v0.10.1](https://github.com/srothgan/tui-textarea/releases/tag/v0.10.1) - 2026-03-05
+
+- Fix Up/Down arrow keys to navigate between visual (wrapped) lines instead of jumping between logical lines when word wrapping is active.
+- Preserve visual column offset when moving between wrapped rows so the cursor moves straight vertically.
+- Fix `cursor_at_visual_row()` boundary clamping for non-last wrapped segments to prevent the cursor landing on the wrong visual line.
+
+[Changes][v0.10.1]
+
 <a id="v0.10.0"></a>
 # [v0.10.0](https://github.com/srothgan/tui-textarea/releases/tag/v0.10.0) - 2026-02-25
 
@@ -507,6 +516,7 @@ First release :tada:
 
 [Changes][v0.1.0]
 
+[v0.10.1]: https://github.com/srothgan/tui-textarea/compare/v0.10.0...v0.10.1
 [v0.10.0]: https://github.com/srothgan/tui-textarea/compare/v0.9.2...v0.10.0
 [v0.9.2]: https://github.com/srothgan/tui-textarea/compare/v0.9.1...v0.9.2
 [v0.9.1]: https://github.com/srothgan/tui-textarea/compare/v0.9.0...v0.9.1

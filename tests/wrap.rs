@@ -264,3 +264,214 @@ fn selection_does_not_extend_with_synthetic_space_on_wrap_boundary() {
     assert_eq!(buf[(5, 0)].style().bg, select_style.bg);
     assert_ne!(buf[(6, 0)].style().bg, select_style.bg);
 }
+
+// --- Wrapped line cursor navigation tests ---
+
+fn render(textarea: &TextArea<'_>, width: u16, height: u16) {
+    let area = Rect {
+        x: 0,
+        y: 0,
+        width,
+        height,
+    };
+    let mut buf = Buffer::empty(area);
+    textarea.render(area, &mut buf);
+}
+
+#[test]
+fn wrapped_cursor_down_moves_within_same_logical_line() {
+    // "abcdefghij" at width=5 wraps into 2 visual lines:
+    //   visual 0: "abcde"  (row 0, cols 0..5)
+    //   visual 1: "fghij"  (row 0, cols 5..10)
+    let mut textarea = TextArea::from(["abcdefghij"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render(&textarea, 5, 4);
+
+    // Cursor starts at (0, 0) — top of visual line 0
+    assert_eq!(textarea.cursor(), (0, 0));
+
+    // Down should move to the second visual line within the same logical line
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 5));
+
+    // Down again should not move (already at last visual row)
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 5));
+}
+
+#[test]
+fn wrapped_cursor_up_moves_within_same_logical_line() {
+    // "abcdefghij" at width=5 wraps into 2 visual lines:
+    //   visual 0: cols 0..4  (end_col=5 exclusive for non-last)
+    //   visual 1: cols 5..10
+    let mut textarea = TextArea::from(["abcdefghij"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render(&textarea, 5, 4);
+
+    // Move to end of text (row 0, col 10) which is on visual line 1
+    textarea.move_cursor(CursorMove::End);
+    assert_eq!(textarea.cursor(), (0, 10));
+
+    // Up should move to visual line 0, col clamped to max of visual line 0 (col 4)
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 4));
+
+    // Up again should not move (already at first visual row)
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 4));
+}
+
+#[test]
+fn wrapped_cursor_down_crosses_logical_line_boundary() {
+    // Two logical lines, first one wraps:
+    //   visual 0: "abcde"  (row 0, cols 0..4)
+    //   visual 1: "fghij"  (row 0, cols 5..10)
+    //   visual 2: "xy"     (row 1, cols 0..2)
+    let mut textarea = TextArea::from(["abcdefghij", "xy"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render(&textarea, 5, 4);
+
+    assert_eq!(textarea.cursor(), (0, 0));
+
+    // Down: visual 0 → visual 1
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 5));
+
+    // Down: visual 1 → visual 2 (crosses into second logical line, visual offset 0 preserved)
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (1, 0));
+
+    // Down: already at bottom
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (1, 0));
+}
+
+#[test]
+fn wrapped_cursor_up_crosses_logical_line_boundary() {
+    // visual 0: "abcde"  (row 0, cols 0..4)
+    // visual 1: "fghij"  (row 0, cols 5..10)
+    // visual 2: "xy"     (row 1, cols 0..2)
+    let mut textarea = TextArea::from(["abcdefghij", "xy"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render(&textarea, 5, 4);
+
+    // Start at second logical line
+    textarea.move_cursor(CursorMove::Jump(1, 0));
+    assert_eq!(textarea.cursor(), (1, 0));
+
+    // Up: visual 2 → visual 1 (visual offset 0 → start of visual row 1)
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 5));
+
+    // Up: visual 1 → visual 0 (visual offset 0 preserved → col 0)
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 0));
+
+    // Up: already at top
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 0));
+}
+
+#[test]
+fn wrapped_cursor_column_preserved_across_visual_lines() {
+    // "abcdefghij" at width=5:
+    //   visual 0: "abcde" (cols 0..4)
+    //   visual 1: "fghij" (cols 5..10)
+    let mut textarea = TextArea::from(["abcdefghij"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render(&textarea, 5, 4);
+
+    // Start at col 2 on visual line 0
+    textarea.move_cursor(CursorMove::Jump(0, 2));
+    assert_eq!(textarea.cursor(), (0, 2));
+
+    // Down: visual offset 2 preserved → target col 5+2 = 7
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 7));
+}
+
+#[test]
+fn wrapped_cursor_column_clamped_to_shorter_visual_line() {
+    // "abcdefgh" + "xy" at width=5:
+    //   visual 0: "abcde" (row 0, cols 0..4)
+    //   visual 1: "fgh"   (row 0, cols 5..8)
+    //   visual 2: "xy"    (row 1, cols 0..2)
+    let mut textarea = TextArea::from(["abcdefgh", "xy"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render(&textarea, 5, 4);
+
+    // Start at col 4 on visual line 0
+    textarea.move_cursor(CursorMove::Jump(0, 4));
+    assert_eq!(textarea.cursor(), (0, 4));
+
+    // Down: visual offset 4 → target col 5+4 = 9, clamped to line len 8
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 8));
+}
+
+#[test]
+fn wrapped_cursor_down_up_with_word_wrap_mode() {
+    // "hello world" at width=6 with Word wrap:
+    //   visual 0: "hello " (row 0, cols 0..5 for non-last)
+    //   visual 1: "world"  (row 0, cols 6..11)
+    let mut textarea = TextArea::from(["hello world"]);
+    textarea.set_wrap_mode(WrapMode::Word);
+    render(&textarea, 6, 4);
+
+    assert_eq!(textarea.cursor(), (0, 0));
+
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 6));
+
+    // Up: visual offset 0 preserved → col 0
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 0));
+}
+
+#[test]
+fn wrapped_cursor_no_wrap_short_lines_behave_normally() {
+    // Lines fit within width — no wrapping happens, normal Up/Down
+    let mut textarea = TextArea::from(["abc", "def", "ghi"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render(&textarea, 10, 4);
+
+    assert_eq!(textarea.cursor(), (0, 0));
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (1, 0));
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (2, 0));
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (1, 0));
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 0));
+}
+
+#[test]
+fn wrapped_cursor_three_visual_lines_from_one_logical() {
+    // "abcdefghijklmno" at width=5:
+    //   visual 0: "abcde" (cols 0..4)
+    //   visual 1: "fghij" (cols 5..9)
+    //   visual 2: "klmno" (cols 10..15)
+    let mut textarea = TextArea::from(["abcdefghijklmno"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render(&textarea, 5, 4);
+
+    assert_eq!(textarea.cursor(), (0, 0));
+
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 5));
+
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 10));
+
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 10)); // already at bottom
+
+    // Up: visual offset 0 preserved → col 5
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 5));
+
+    // Up: visual offset 0 preserved → col 0
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 0));
+}
