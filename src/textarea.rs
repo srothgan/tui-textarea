@@ -1632,10 +1632,26 @@ impl<'a> TextArea<'a> {
     }
 
     fn move_cursor_with_shift(&mut self, m: CursorMove, shift: bool) {
+        let wrapped_storage;
+        let wrapped_ref = if self.wrap_mode != WrapMode::None {
+            let (_, _, width, _) = self.viewport.rect();
+            if width > 0 {
+                let line_number_len = self.line_number_style.map(|_| num_digits(self.lines.len()));
+                let wrap_width = effective_wrap_width(width, line_number_len);
+                wrapped_storage =
+                    wrapped_rows(&self.lines, self.wrap_mode, wrap_width, self.tab_len);
+                Some(wrapped_storage.as_slice())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let next = if m == CursorMove::InViewport && self.wrap_mode != WrapMode::None {
             self.cursor_in_wrapped_viewport()
         } else {
-            m.next_cursor(self.cursor, &self.lines, &self.viewport)
+            m.next_cursor(self.cursor, &self.lines, &self.viewport, wrapped_ref)
         };
 
         if let Some(cursor) = next {
