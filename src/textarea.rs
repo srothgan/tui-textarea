@@ -153,6 +153,7 @@ pub struct TextArea<'a> {
     selection_start: Option<(usize, usize)>,
     select_style: Style,
     custom_highlights: Vec<CustomHighlight>,
+    measure_cache: Option<(u16, TextAreaMeasure)>,
 }
 
 /// Convert any iterator whose elements can be converted into [`String`] into [`TextArea`]. Each [`String`] element is
@@ -262,6 +263,7 @@ impl<'a> TextArea<'a> {
             selection_start: None,
             select_style: Style::default().bg(Color::LightBlue),
             custom_highlights: Default::default(),
+            measure_cache: None,
         }
     }
 
@@ -777,6 +779,7 @@ impl<'a> TextArea<'a> {
         let after = Pos::new(row, col, after_offset);
         let edit = Edit::new(kind, before, after);
         self.history.push(edit);
+        self.reset_measure_cache();
     }
 
     /// Insert a single character at current cursor position.
@@ -1504,6 +1507,10 @@ impl<'a> TextArea<'a> {
         (row, col)
     }
 
+    fn reset_measure_cache(&mut self) {
+        self.measure_cache = None;
+    }
+
     /// Set the style used for text selection. The default style is light blue.
     /// ```
     /// use tui_textarea::TextArea;
@@ -1707,6 +1714,7 @@ impl<'a> TextArea<'a> {
         if let Some(cursor) = self.history.undo(&mut self.lines) {
             self.cancel_selection();
             self.cursor = self.clamp_cursor_to_buffer(cursor);
+            self.reset_measure_cache();
             true
         } else {
             false
@@ -1730,6 +1738,7 @@ impl<'a> TextArea<'a> {
         if let Some(cursor) = self.history.redo(&mut self.lines) {
             self.cancel_selection();
             self.cursor = self.clamp_cursor_to_buffer(cursor);
+            self.reset_measure_cache();
             true
         } else {
             false
@@ -1931,6 +1940,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn set_block(&mut self, block: Block<'a>) {
         self.block = Some(block);
+        self.reset_measure_cache();
     }
 
     /// Remove the block of textarea which was set by [`TextArea::set_block`].
@@ -1946,6 +1956,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn remove_block(&mut self) {
         self.block = None;
+        self.reset_measure_cache();
     }
 
     /// Get the block of textarea if exists.
@@ -1970,6 +1981,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn set_tab_length(&mut self, len: u8) {
         self.tab_len = len;
+        self.reset_measure_cache();
     }
 
     /// Get how many spaces are used for representing tab character. The default value is 4.
@@ -2076,6 +2088,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn set_line_number_style(&mut self, style: Style) {
         self.line_number_style = Some(style);
+        self.reset_measure_cache();
     }
 
     /// Remove the style of line number which was set by [`TextArea::set_line_number_style`]. After calling this
@@ -2092,6 +2105,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn remove_line_number(&mut self) {
         self.line_number_style = None;
+        self.reset_measure_cache();
     }
 
     /// Get the style of line number if set.
@@ -2115,6 +2129,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn set_placeholder_text(&mut self, placeholder: impl Into<String>) {
         self.placeholder = placeholder.into();
+        self.reset_measure_cache();
     }
 
     /// Set the style of the placeholder text. The default style is a dark gray text.
@@ -2253,6 +2268,25 @@ impl<'a> TextArea<'a> {
         &self.lines
     }
 
+    /// Replace the entire text buffer without rebuilding widget configuration.
+    ///
+    /// The provided cursor is clamped to the new buffer, edit history is cleared, active
+    /// selection and custom highlights are removed, and the viewport scroll is reset.
+    pub fn set_lines(&mut self, lines: Vec<String>, cursor: (usize, usize)) {
+        assert!(
+            !lines.is_empty(),
+            "lines must not be empty; use vec![String::new()] for empty content"
+        );
+
+        self.lines = lines;
+        self.cursor = self.clamp_cursor_to_buffer(cursor);
+        self.history = History::new(self.history.max_items());
+        self.selection_start = None;
+        self.custom_highlights.clear();
+        self.viewport = Viewport::default();
+        self.reset_measure_cache();
+    }
+
     /// Convert [`TextArea`] instance into line texts.
     /// ```
     /// use tui_textarea::TextArea;
@@ -2344,6 +2378,7 @@ impl<'a> TextArea<'a> {
     pub fn set_alignment(&mut self, alignment: Alignment) {
         if let Alignment::Center | Alignment::Right = alignment {
             self.line_number_style = None;
+            self.reset_measure_cache();
         }
         self.alignment = alignment;
     }
@@ -2372,6 +2407,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn set_wrap_mode(&mut self, mode: WrapMode) {
         self.wrap_mode = mode;
+        self.reset_measure_cache();
     }
 
     /// Get the current soft-wrap mode.
@@ -2389,6 +2425,7 @@ impl<'a> TextArea<'a> {
         if self.max_rows < self.min_rows {
             self.max_rows = self.min_rows;
         }
+        self.reset_measure_cache();
     }
 
     /// Get the configured minimum preferred height in rows.
@@ -2406,6 +2443,7 @@ impl<'a> TextArea<'a> {
         if self.max_rows < self.min_rows {
             self.max_rows = self.min_rows;
         }
+        self.reset_measure_cache();
     }
 
     /// Get the configured maximum preferred height in rows.
@@ -2429,6 +2467,12 @@ impl<'a> TextArea<'a> {
     /// assert_eq!(m.preferred_rows, 2);
     /// ```
     pub fn measure(&mut self, width_cols: u16) -> TextAreaMeasure {
+        if let Some((cached_width, cached_result)) = self.measure_cache {
+            if cached_width == width_cols {
+                return cached_result;
+            }
+        }
+
         let area = Rect {
             x: 0,
             y: 0,
@@ -2448,12 +2492,14 @@ impl<'a> TextArea<'a> {
         let unclamped_preferred_rows = content_rows.saturating_add(chrome_rows);
         let preferred_rows = unclamped_preferred_rows.clamp(min_rows, max_rows);
 
-        TextAreaMeasure {
+        let result = TextAreaMeasure {
             content_rows,
             preferred_rows,
             min_rows,
             max_rows,
-        }
+        };
+        self.measure_cache = Some((width_cols, result));
+        result
     }
 
     fn measure_content_rows(&self, width_cols: u16) -> u16 {
@@ -2762,6 +2808,7 @@ impl<'a> TextArea<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui::widgets::Borders;
 
     // Separate tests for tui-rs support
     #[test]
@@ -2815,5 +2862,86 @@ mod tests {
         assert!(textarea.redo());
         assert_eq!(textarea.lines(), [""]);
         assert_eq!(textarea.cursor(), (0, 0));
+    }
+
+    #[test]
+    fn set_lines_resets_ephemeral_state() {
+        let mut textarea = TextArea::from(["hello"]);
+        let style = Style::default().fg(Color::Green);
+        let cursor_style = Style::default().bg(Color::Red);
+        let placeholder_style = Style::default().fg(Color::Cyan);
+
+        textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+        textarea.set_block(Block::default().borders(Borders::ALL).title("Input"));
+        textarea.set_style(style);
+        textarea.set_cursor_style(cursor_style);
+        textarea.set_placeholder_text("placeholder");
+        textarea.set_placeholder_style(placeholder_style);
+        textarea.set_yank_text("copied");
+        textarea.set_min_rows(2);
+        textarea.set_max_rows(6);
+        textarea.set_max_histories(3);
+        textarea.start_selection();
+        textarea.move_cursor(CursorMove::End);
+        textarea.custom_highlight(((0, 0), (0, 5)), Style::default(), 1);
+        textarea.viewport.scroll(3, 4);
+        textarea.measure(5);
+
+        assert!(textarea.measure_cache.is_some());
+        assert!(textarea.is_selecting());
+        assert!(!textarea.custom_highlights.is_empty());
+        assert_ne!(textarea.viewport.scroll_top(), (0, 0));
+
+        textarea.set_lines(vec!["abc".to_string()], (0, 99));
+
+        assert_eq!(textarea.lines(), ["abc"]);
+        assert_eq!(textarea.cursor(), (0, 3));
+        assert_eq!(textarea.style(), style);
+        assert_eq!(textarea.cursor_style(), cursor_style);
+        assert_eq!(textarea.placeholder_text(), "placeholder");
+        assert_eq!(textarea.placeholder_style(), Some(placeholder_style));
+        assert_eq!(textarea.yank_text(), "copied");
+        assert_eq!(textarea.min_rows(), 2);
+        assert_eq!(textarea.max_rows(), 6);
+        assert_eq!(textarea.max_histories(), 3);
+        assert!(textarea.block().is_some());
+        assert!(!textarea.is_selecting());
+        assert!(textarea.custom_highlights.is_empty());
+        assert_eq!(textarea.viewport.scroll_top(), (0, 0));
+        assert_eq!(textarea.measure_cache, None);
+        assert!(!textarea.undo());
+    }
+
+    #[test]
+    fn measure_cache_tracks_last_width() {
+        let mut textarea = TextArea::from(["abcdef"]);
+        textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+
+        let first = textarea.measure(4);
+        assert_eq!(textarea.measure_cache, Some((4, first)));
+
+        let second = textarea.measure(8);
+        assert_eq!(textarea.measure_cache, Some((8, second)));
+    }
+
+    #[test]
+    fn set_placeholder_text_resets_measure_cache() {
+        let mut textarea = TextArea::default();
+        textarea.measure(4);
+        assert!(textarea.measure_cache.is_some());
+
+        textarea.set_placeholder_text("placeholder");
+        assert_eq!(textarea.measure_cache, None);
+    }
+
+    #[test]
+    fn set_lines_panics_on_empty_buffer() {
+        let mut textarea = TextArea::default();
+
+        let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            textarea.set_lines(vec![], (0, 0));
+        }));
+
+        assert!(panic.is_err());
     }
 }

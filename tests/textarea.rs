@@ -1,3 +1,6 @@
+use ratatui::layout::Alignment;
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::widgets::{Block, Borders};
 use std::cmp;
 use std::fmt::Debug;
 use tui_textarea::{CursorMove, TextArea};
@@ -1602,6 +1605,81 @@ fn test_selection_range() {
         let range = t.selection_range();
         assert_eq!(range, None, "selection from {from:?} to {to:?}");
     }
+}
+
+#[test]
+fn test_set_lines_preserves_non_content_configuration() {
+    let mut t = TextArea::from(["hello"]);
+    let base_style = Style::default().fg(Color::Green);
+    let cursor_style = Style::default().bg(Color::Red);
+    let cursor_line_style = Style::default().add_modifier(Modifier::BOLD);
+    let selection_style = Style::default().bg(Color::Blue);
+    let line_number_style = Style::default().fg(Color::Yellow);
+    let placeholder_style = Style::default().fg(Color::Cyan);
+
+    t.set_wrap_mode(tui_textarea::WrapMode::WordOrGlyph);
+    t.set_block(Block::default().borders(Borders::ALL).title("Input"));
+    t.set_style(base_style);
+    t.set_cursor_style(cursor_style);
+    t.set_cursor_line_style(cursor_line_style);
+    t.set_selection_style(selection_style);
+    t.set_tab_length(8);
+    t.set_alignment(Alignment::Right);
+    t.set_line_number_style(line_number_style);
+    t.set_placeholder_text("placeholder");
+    t.set_placeholder_style(placeholder_style);
+    t.set_mask_char('*');
+    t.set_yank_text("copied");
+    t.set_min_rows(2);
+    t.set_max_rows(6);
+    t.set_max_histories(3);
+
+    t.set_lines(vec!["abc".to_string()], (0, 1));
+
+    assert_eq!(t.lines(), ["abc"]);
+    assert_eq!(t.cursor(), (0, 1));
+    assert_eq!(t.wrap_mode(), tui_textarea::WrapMode::WordOrGlyph);
+    assert!(t.block().is_some());
+    assert_eq!(t.style(), base_style);
+    assert_eq!(t.cursor_style(), cursor_style);
+    assert_eq!(t.cursor_line_style(), cursor_line_style);
+    assert_eq!(t.selection_style(), selection_style);
+    assert_eq!(t.tab_length(), 8);
+    assert_eq!(t.alignment(), Alignment::Right);
+    assert_eq!(t.line_number_style(), Some(line_number_style));
+    assert_eq!(t.placeholder_text(), "placeholder");
+    assert_eq!(t.placeholder_style(), Some(placeholder_style));
+    assert_eq!(t.mask_char(), Some('*'));
+    assert_eq!(t.yank_text(), "copied");
+    assert_eq!(t.min_rows(), 2);
+    assert_eq!(t.max_rows(), 6);
+    assert_eq!(t.max_histories(), 3);
+}
+
+#[test]
+fn test_set_lines_clamps_cursor_and_clears_selection_and_history() {
+    let mut t = TextArea::from(["hello", "world"]);
+    assert!(t.insert_str("!"));
+    assert!(t.undo());
+    assert!(t.redo());
+    t.move_cursor(CursorMove::Jump(0, 1));
+    t.start_selection();
+    t.move_cursor(CursorMove::Jump(1, 3));
+    assert!(t.is_selecting());
+
+    t.set_lines(vec!["ab".to_string(), "c".to_string()], (9, 9));
+
+    assert_eq!(t.lines(), ["ab", "c"]);
+    assert_eq!(t.cursor(), (1, 1));
+    assert!(!t.is_selecting());
+    assert!(!t.undo());
+}
+
+#[test]
+#[should_panic(expected = "lines must not be empty; use vec![String::new()] for empty content")]
+fn test_set_lines_panics_on_empty_lines() {
+    let mut t = TextArea::default();
+    t.set_lines(vec![], (0, 0));
 }
 
 struct DeleteTester(&'static [&'static str], fn(&mut TextArea) -> bool);
