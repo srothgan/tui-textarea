@@ -1,3 +1,13 @@
+<a id="v0.10.2"></a>
+# [v0.10.2](https://github.com/srothgan/tui-textarea/releases/tag/v0.10.2) - 2026-03-13
+
+- Add `TextArea::set_lines(lines, cursor)` for direct whole-buffer replacement without rebuilding widget configuration.
+- Preserve textarea configuration across `set_lines()` while resetting history, active selection, custom highlights, viewport scroll, and cached measurement state.
+- Cache `TextArea::measure(width_cols)` results by width and invalidate the cache on content edits, `undo()` / `redo()`, and measure-affecting setters.
+- Add tests covering `set_lines()` semantics, cursor clamping, and `measure()` cache correctness.
+
+[Changes][v0.10.2]
+
 <a id="v0.10.1"></a>
 # [v0.10.1](https://github.com/srothgan/tui-textarea/releases/tag/v0.10.1) - 2026-03-05
 
@@ -516,6 +526,7 @@ First release :tada:
 
 [Changes][v0.1.0]
 
+[v0.10.2]: https://github.com/srothgan/tui-textarea/compare/v0.10.1...v0.10.2
 [v0.10.1]: https://github.com/srothgan/tui-textarea/compare/v0.10.0...v0.10.1
 [v0.10.0]: https://github.com/srothgan/tui-textarea/compare/v0.9.2...v0.10.0
 [v0.9.2]: https://github.com/srothgan/tui-textarea/compare/v0.9.1...v0.9.2

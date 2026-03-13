@@ -11,6 +11,15 @@ Multi-line text editor can be easily put as part of your TUI application.
 
 > Maintained fork notice: this repository is maintained under `srothgan/tui-textarea` to keep compatibility updates moving (including ratatui 0.30+ support and maintenance fixes).
 
+Since this fork was created, it has added or integrated:
+
+- Compatibility updates for current ratatui releases plus Rust 2024 / `rust-version = 1.85.0`
+- `TextArea::clear()` and custom highlight APIs
+- Unicode-aware soft-wrap modes via `WrapMode::{None, Word, Glyph, WordOrGlyph}`
+- Wrapped-line Up/Down cursor navigation that follows visual rows
+- Row measurement via `TextAreaMeasure`, `TextArea::measure()`, `set_min_rows()`, and `set_max_rows()`
+- Bulk whole-buffer replacement via `TextArea::set_lines()`
+
 **Features:**
 
 - Multi-line text editor widget with basic operations (insert/delete characters, auto scrolling, ...)
@@ -18,8 +27,13 @@ Multi-line text editor can be easily put as part of your TUI application.
 - Undo/Redo
 - Line number
 - Cursor line highlight
+- Unicode-aware soft wrap with visual-line cursor navigation
+- Dynamic row measurement for auto-sizing layouts
+- Bulk content replacement without rebuilding widget configuration
 - Search with regular expressions
 - Text selection
+- Custom highlighted ranges
+- Placeholder and masking support
 - Mouse scrolling
 - Yank support. Paste text deleted with `C-k`, `C-j`, ...
 - Backend agnostic. [crossterm][], [termion][], [termwiz][], and your own backend are all supported
@@ -78,7 +92,9 @@ Two split textareas in a screen and switch them. An example for multiple textare
 cargo run --example variable
 ```
 
-Simple textarea with variable height following the number of lines.
+Simple textarea with variable height driven by measured preferred rows.
+
+This example now sizes itself from `textarea.measure(width).preferred_rows`.
 
 ### [`vim`](./examples/vim.rs)
 
@@ -264,7 +280,7 @@ Default key mappings are as follows:
 | `Ctrl+P`, `↑`                                | Move cursor up by one line                |
 | `Ctrl+N`, `↓`                                | Move cursor down by one line              |
 | `Alt+F`, `Ctrl+→`                            | Move cursor forward by word               |
-| `Atl+B`, `Ctrl+←`                            | Move cursor backward by word              |
+| `Alt+B`, `Ctrl+←`                            | Move cursor backward by word              |
 | `Alt+]`, `Alt+P`, `Ctrl+↑`                   | Move cursor up by paragraph               |
 | `Alt+[`, `Alt+N`, `Ctrl+↓`                   | Move cursor down by paragraph             |
 | `Ctrl+E`, `End`, `Ctrl+Alt+F`, `Ctrl+Alt+→`  | Move cursor to the end of line            |
@@ -342,6 +358,27 @@ let textarea = TextArea::default();
 assert_eq!(textarea.into_lines(), [""]);
 ```
 
+### Replace all text while preserving configuration
+
+When you want to replace the whole buffer without rebuilding `TextArea` and reapplying styles/configuration, use
+`TextArea::set_lines()`.
+
+```rust,ignore
+let mut textarea = TextArea::default();
+
+textarea.set_placeholder_text("Type here");
+textarea.set_line_number_style(ratatui::style::Style::default());
+
+textarea.set_lines(
+    vec!["hello".to_string(), "world".to_string()],
+    (1, 5),
+);
+```
+
+`set_lines()` preserves widget configuration such as styles, wrapping, placeholder, and history capacity, while resetting
+content-specific state such as undo/redo contents, active selection, custom highlights, viewport scroll, and cached
+measurement results.
+
 ### Show line number
 
 By default, `TextArea` does not show line numbers. To enable, set a style for rendering line numbers by
@@ -402,6 +439,47 @@ Supported modes:
 - `WrapMode::Word`: Wrap only at word boundaries.
 - `WrapMode::Glyph`: Wrap at grapheme boundaries.
 - `WrapMode::WordOrGlyph`: Wrap at word boundaries with grapheme fallback for long words.
+
+When wrapping is enabled, `CursorMove::Up` and `CursorMove::Down` follow visual rows instead of jumping only between
+logical lines.
+
+### Measure preferred height
+
+`TextArea::measure(width_cols)` returns a `TextAreaMeasure` with row counts for the current content and layout. This is
+useful when your textarea should grow and shrink with wrapped content.
+
+```rust,ignore
+use tui_textarea::{TextArea, WrapMode};
+
+let mut textarea = TextArea::from(["hello world"]);
+textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+textarea.set_min_rows(3);
+textarea.set_max_rows(10);
+
+let measured = textarea.measure(12);
+let content_rows = measured.content_rows;
+let height = measured.preferred_rows;
+```
+
+`content_rows` counts the rows needed by the inner content area. `preferred_rows` includes block chrome such as borders
+and respects the configured `min_rows` and `max_rows`.
+
+### Add custom highlighted ranges
+
+You can draw your own highlighted ranges on top of the content with `TextArea::custom_highlight()`. This is useful for
+syntax annotations, diffs, or app-specific match highlighting.
+
+```rust,ignore
+use ratatui::style::{Color, Style};
+
+textarea.custom_highlight(
+    ((0, 0), (0, 5)),
+    Style::default().bg(Color::Yellow),
+    10,
+);
+```
+
+Call `TextArea::clear_custom_highlight()` to remove all custom highlighted ranges.
 
 ### Configure max history size
 
@@ -480,7 +558,7 @@ loop {
         Input { key: Key::Char('m'), ctrl: true, alt: false }
         | Input { key: Key::Enter, .. } => continue,
         input => {
-            textarea.input(key);
+            textarea.input(input);
         }
     }
 }
@@ -510,6 +588,10 @@ notify how to move the cursor.
 | `textarea.copy()`                                    | Copy selected text                              |
 | `textarea.cut()`                                     | Cut selected text                               |
 | `textarea.paste()`                                   | Paste yanked text                               |
+| `textarea.insert_char(c)`                            | Insert one character                            |
+| `textarea.insert_str(text)`                          | Insert a string                                 |
+| `textarea.insert_tab()`                              | Insert indentation / tab text                   |
+| `textarea.delete_str(chars)`                         | Delete multiple characters                      |
 | `textarea.start_selection()`                         | Start text selection                            |
 | `textarea.cancel_selection()`                        | Cancel text selection                           |
 | `textarea.select_all()`                              | Select entire text                              |
@@ -540,6 +622,32 @@ notify how to move the cursor.
 | `textarea.scroll((row, col))`                        | Scroll down the viewport to (row, col) position |
 
 To define your own key mappings, simply call the above methods in your code instead of `TextArea::input()` method.
+
+Useful state/configuration helpers:
+
+| Method                                   | Purpose                                                     |
+|------------------------------------------|-------------------------------------------------------------|
+| `textarea.cursor()`                      | Get current `(row, col)` cursor position                    |
+| `textarea.selection_range()`             | Get the current selected range if selection is active       |
+| `textarea.is_selecting()`                | Check whether selection is active                           |
+| `textarea.lines()`                       | Borrow the current text lines                               |
+| `textarea.set_lines(lines, cursor)`      | Replace the entire buffer while preserving widget settings  |
+| `textarea.set_wrap_mode(mode)`           | Configure soft wrapping                                     |
+| `textarea.wrap_mode()`                   | Read the current wrap mode                                  |
+| `textarea.set_min_rows(rows)`            | Set the minimum preferred measured height                   |
+| `textarea.min_rows()`                    | Read the configured minimum preferred height                |
+| `textarea.set_max_rows(rows)`            | Set the maximum preferred measured height                   |
+| `textarea.max_rows()`                    | Read the configured maximum preferred height                |
+| `textarea.measure(width_cols)`           | Measure content and preferred outer height                  |
+| `textarea.set_block(block)`              | Configure block chrome used for rendering and measurement   |
+| `textarea.remove_block()`                | Remove block chrome                                         |
+| `textarea.set_line_number_style(style)`  | Enable or restyle line numbers                              |
+| `textarea.remove_line_number()`          | Disable line numbers                                        |
+| `textarea.set_placeholder_text(text)`    | Set or disable placeholder text                             |
+| `textarea.set_placeholder_style(style)`  | Change placeholder style                                    |
+| `textarea.set_mask_char(ch)`             | Enable character masking                                    |
+| `textarea.clear_mask_char()`             | Disable character masking                                   |
+| `textarea.clear()`                       | Clear the full buffer                                       |
 
 See the [`vim` example](./examples/vim.rs) for working example. It implements more Vim-like key modal mappings.
 
@@ -682,6 +790,7 @@ Values of the following types can be serialized/deserialized:
 - `Input`
 - `CursorMove`
 - `Scrolling`
+- `WrapMode`
 
 Here is an example for deserializing key input from JSON using [serde_json][].
 
@@ -709,7 +818,10 @@ println!("{input:?}");
 
 ## Minimum Supported Rust Version
 
-MSRV of this crate is depending on `tui` crate. Currently MSRV is 1.56.1. Note that `ratatui` crate requires more recent Rust version.
+MSRV of this crate is Rust 1.85.0 because the crate uses Rust 2024 edition.
+
+If you enable older `tui-rs` integration features, you still need dependency versions compatible with that backend stack,
+but the crate itself now targets Rust 1.85.0.
 
 ## Versioning
 
