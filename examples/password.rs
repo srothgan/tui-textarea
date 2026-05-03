@@ -1,3 +1,5 @@
+mod common;
+
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
@@ -16,6 +18,7 @@ fn main() -> io::Result<()> {
 
     enable_raw_mode()?;
     crossterm::execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let recording = common::maybe_force_recording_size(&mut stdout)?;
     let backend = CrosstermBackend::new(stdout);
     let mut term = Terminal::new(backend)?;
 
@@ -53,6 +56,7 @@ fn main() -> io::Result<()> {
         LeaveAlternateScreen,
         DisableMouseCapture,
     )?;
+    recording.restore(term.backend_mut())?;
     term.show_cursor()?;
 
     println!("Input: {:?}", textarea.lines()[0]);

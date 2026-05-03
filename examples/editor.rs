@@ -1,3 +1,5 @@
+mod common;
+
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
@@ -14,6 +16,7 @@ use std::fmt::Display;
 use std::fs;
 use std::io;
 use std::io::{BufRead, Write};
+use std::mem;
 use std::path::PathBuf;
 use tui_textarea::{CursorMove, Input, Key, TextArea};
 
@@ -135,6 +138,7 @@ struct Editor<'a> {
     current: usize,
     buffers: Vec<Buffer<'a>>,
     term: Terminal<CrosstermBackend<io::Stdout>>,
+    recording: common::RecordingSizeGuard,
     message: Option<Cow<'static, str>>,
     search: SearchBox<'a>,
 }
@@ -154,12 +158,14 @@ impl Editor<'_> {
         let mut stdout = io::stdout();
         enable_raw_mode()?;
         crossterm::execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        let recording = common::maybe_force_recording_size(&mut stdout)?;
         let backend = CrosstermBackend::new(stdout);
         let term = Terminal::new(backend)?;
         Ok(Self {
             current: 0,
             buffers,
             term,
+            recording,
             message: None,
             search: SearchBox::default(),
         })
@@ -348,12 +354,14 @@ impl Drop for Editor<'_> {
     fn drop(&mut self) {
         self.term.show_cursor().unwrap();
         disable_raw_mode().unwrap();
+        let recording = mem::take(&mut self.recording);
         crossterm::execute!(
             self.term.backend_mut(),
             LeaveAlternateScreen,
             DisableMouseCapture
         )
         .unwrap();
+        recording.restore(self.term.backend_mut()).unwrap();
     }
 }
 
