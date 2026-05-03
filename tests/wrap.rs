@@ -4,6 +4,10 @@ use ratatui::style::{Color, Style};
 use ratatui::widgets::Widget as _;
 use tui_textarea::{CursorMove, TextArea, WrapMode};
 
+fn cell_symbol(cell: &ratatui::buffer::Cell) -> &str {
+    cell.symbol()
+}
+
 fn render_lines(textarea: &TextArea<'_>, width: u16, height: u16) -> Vec<String> {
     let area = Rect {
         x: 0,
@@ -18,7 +22,7 @@ fn render_lines(textarea: &TextArea<'_>, width: u16, height: u16) -> Vec<String>
         .map(|y| {
             let mut line = String::new();
             for x in 0..width {
-                line.push_str(buf[(x, y)].symbol());
+                line.push_str(cell_symbol(&buf[(x, y)]));
             }
             line
         })
@@ -407,6 +411,56 @@ fn wrapped_cursor_column_clamped_to_shorter_visual_line() {
     // Down: visual offset 4 → target col 5+4 = 9, clamped to line len 8
     textarea.move_cursor(CursorMove::Down);
     assert_eq!(textarea.cursor(), (0, 8));
+}
+
+#[test]
+fn wrapped_cursor_down_preserves_visual_column_for_mixed_width_same_logical_line() {
+    let mut textarea = TextArea::from(["a中bcde"]);
+    textarea.set_wrap_mode(WrapMode::Glyph);
+    render(&textarea, 4, 4);
+
+    // After `a中`, the data column is 2 but the visual column is 3.
+    textarea.move_cursor(CursorMove::Jump(0, 2));
+    assert_eq!(textarea.cursor(), (0, 2));
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (0, 6));
+}
+
+#[test]
+fn wrapped_cursor_up_preserves_visual_column_for_mixed_width_same_logical_line() {
+    let mut textarea = TextArea::from(["a中bcde"]);
+    textarea.set_wrap_mode(WrapMode::Glyph);
+    render(&textarea, 4, 4);
+
+    textarea.move_cursor(CursorMove::Jump(0, 6));
+    assert_eq!(textarea.cursor(), (0, 6));
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 2));
+}
+
+#[test]
+fn wrapped_cursor_down_preserves_visual_column_when_crossing_into_mixed_width_line() {
+    let mut textarea = TextArea::from(["abcd", "a中bcde"]);
+    textarea.set_wrap_mode(WrapMode::Glyph);
+    render(&textarea, 4, 4);
+
+    // Visual column 3 in ASCII should land at visual column 3 in the mixed-width row.
+    textarea.move_cursor(CursorMove::Jump(0, 3));
+    assert_eq!(textarea.cursor(), (0, 3));
+    textarea.move_cursor(CursorMove::Down);
+    assert_eq!(textarea.cursor(), (1, 2));
+}
+
+#[test]
+fn wrapped_cursor_up_preserves_visual_column_when_crossing_out_of_mixed_width_line() {
+    let mut textarea = TextArea::from(["abcd", "a中bcde"]);
+    textarea.set_wrap_mode(WrapMode::Glyph);
+    render(&textarea, 4, 4);
+
+    textarea.move_cursor(CursorMove::Jump(1, 2));
+    assert_eq!(textarea.cursor(), (1, 2));
+    textarea.move_cursor(CursorMove::Up);
+    assert_eq!(textarea.cursor(), (0, 3));
 }
 
 #[test]

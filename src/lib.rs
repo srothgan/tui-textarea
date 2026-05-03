@@ -4,15 +4,11 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
 
-#[cfg(all(feature = "ratatui", feature = "tuirs"))]
-compile_error!(
-    "ratatui support and tui-rs support are exclusive. only one of them can be enabled at the same time. see https://github.com/rhysd/tui-textarea#installation"
-);
-
 mod cursor;
 mod highlight;
 mod history;
 mod input;
+mod screen_map;
 mod scroll;
 #[cfg(feature = "search")]
 mod search;
@@ -32,14 +28,9 @@ mod ratatui {
         pub use ratatui_widgets::{block::Block, paragraph::Paragraph};
     }
 }
-#[cfg(feature = "tuirs")]
-use tui as ratatui;
-
 #[cfg(all(feature = "crossterm", not(feature = "crossterm_0_28")))]
 #[allow(clippy::single_component_path_imports)]
 use crossterm;
-#[cfg(feature = "tuirs-crossterm")]
-use crossterm_025 as crossterm;
 #[cfg(feature = "crossterm_0_28")]
 #[allow(clippy::single_component_path_imports)]
 use crossterm_028 as crossterm;
@@ -47,8 +38,6 @@ use crossterm_028 as crossterm;
 #[cfg(feature = "termion")]
 #[allow(clippy::single_component_path_imports)]
 use termion;
-#[cfg(feature = "tuirs-termion")]
-use termion_15 as termion;
 
 pub use cursor::CursorMove;
 pub use input::{Input, Key};

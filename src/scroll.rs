@@ -189,7 +189,6 @@ impl From<(i16, i16)> for Scrolling {
 mod tests {
     use super::*;
 
-    // Separate tests for tui-rs support
     #[test]
     fn delta() {
         use crate::TextArea;

@@ -6,7 +6,7 @@ tui-textarea-2
 [![Rust Clippy][clippy-badge]][clippy]
 [![coverage][codecov-badge]][codecov]
 
-[tui-textarea-2][crate] is a simple yet powerful text editor widget like <textarea> in HTML for [ratatui][] and [tui-rs][].
+[tui-textarea-2][crate] is a simple yet powerful text editor widget like <textarea> in HTML for [ratatui][].
 Multi-line text editor can be easily put as part of your TUI application.
 
 > Maintained fork notice: this repository is maintained under `srothgan/tui-textarea` to keep compatibility updates moving (including ratatui 0.30+ support and maintenance fixes).
@@ -38,13 +38,17 @@ Since this fork was created, it has added or integrated:
 - Yank support. Paste text deleted with `C-k`, `C-j`, ...
 - Backend agnostic. [crossterm][], [termion][], [termwiz][], and your own backend are all supported
 - Multiple textarea widgets in the same screen
-- Support both [ratatui][] (the fork by community) and [tui-rs][] (the original)
+- Support [ratatui][]
 
 [Documentation][doc]
 
 ## Examples
 
 Running `cargo run --example` in this repository can demonstrate usage of tui-textarea.
+
+For consistent GIF capture across the crossterm examples, set `TUI_TEXTAREA_RECORDING=1` for the default `120x30`
+terminal size or override it with `TUI_TEXTAREA_RECORDING_SIZE=<cols>x<rows>`. See
+[`examples/RECORDING.md`](./examples/RECORDING.md) for the recording workflow.
 
 ### [`minimal`](./examples/minimal.rs)
 
@@ -142,22 +146,6 @@ cargo run --example termwiz --no-default-features --features=termwiz
 
 Minimal usage with [termwiz][] support.
 
-### Examples for [tui-rs][] support
-
-All above examples use [ratatui][], but some examples provide tui-rs version. Try `tuirs_` prefix. In these cases, you
-need to specify features to use tui-rs and `--no-default-features` flag explicitly.
-
-```sh
-# tui-rs version of `minimal` example
-cargo run --example tuirs_minimal --no-default-features --features=tuirs-crossterm
-
-# tui-rs version of `editor` example
-cargo run --example tuirs_editor --no-default-features --features=tuirs-crossterm,search file.txt
-
-# tui-rs version of `termion` example
-cargo run --example tuirs_termion --no-default-features --features=tuirs-termion
-```
-
 ## Installation
 
 Add `tui-textarea` crate to dependencies in your `Cargo.toml`. This enables crossterm backend support by default.
@@ -191,30 +179,14 @@ ratatui = { version = "*", default-features = false, features = ["termwiz"] }
 tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["termwiz"] }
 ```
 
-If you're using [tui-rs][] instead of [ratatui][], you need to enable features for using tui-rs crate and to disable
-default features. The following table shows feature names corresponding to the dependencies.
+The following table shows feature names corresponding to the supported ratatui backend integrations.
 
 |         | crossterm                        | termion         | termwiz   | Your own backend   |
 |---------|----------------------------------|-----------------|-----------|--------------------|
 | ratatui | `crossterm` (enabled by default) | `termion`       | `termwiz` | `no-backend`       |
-| tui-rs  | `tuirs-crossterm`                | `tuirs-termion` | N/A       | `tuirs-no-backend` |
-
-For example, when you want to use the combination of [tui-rs][] and [crossterm][],
-
-```toml
-[dependencies]
-tui = "*"
-tui-textarea = { package = "tui-textarea-2", version = "*", features = ["tuirs-crossterm"], default-features = false }
-```
-
-Note that [ratatui][] support and [tui-rs][] support are exclusive. When you use [tui-rs][] support, you must disable
-[ratatui][] support by `default-features = false`.
 
 In addition to above dependencies, you also need to install [crossterm][] or [termion][] or [termwiz][] to initialize
-your application and to receive key inputs. Note that the dependency versions of [crossterm][] crate and [termion][]
-crate differ between [ratatui][] and [tui-rs][]. Please make sure to use the same version that matches the package you
-are using. For example, [tui-rs][] depends on [crossterm][] v0.2.5 or [termion][] v1.5 where both crates are older than
-[ratatui][]'s dependencies.
+your application and to receive key inputs.
 
 ## Minimal Usage
 
@@ -665,16 +637,13 @@ match read()?.into() {
 
 ### Use your own backend
 
-ratatui and tui-rs allows to make your own backend by implementing [`ratatui::backend::Backend`][ratatui-backend] trait.
-tui-textarea supports it as well. Please use `no-backend` feature for [ratatui][] or `tuirs-no-backend` feature for
-[tui-rs][]. They avoid adding backend crates (crossterm, termion, or termwiz) since you're using your own backend.
+ratatui allows to make your own backend by implementing [`ratatui::backend::Backend`][ratatui-backend] trait.
+tui-textarea supports it as well. Please use the `no-backend` feature. It avoids adding backend crates (crossterm,
+termion, or termwiz) since you're using your own backend.
 
 ```toml
 [dependencies]
-# For ratatui
 tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["no-backend"] }
-# For tui-rs
-tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["tuirs-no-backend"] }
 ```
 
 `tui_textarea::Input` is a type for backend-agnostic key input. What you need to do is converting key event in your own
@@ -820,8 +789,7 @@ println!("{input:?}");
 
 MSRV of this crate is Rust 1.85.0 because the crate uses Rust 2024 edition.
 
-If you enable older `tui-rs` integration features, you still need dependency versions compatible with that backend stack,
-but the crate itself now targets Rust 1.85.0.
+This crate targets Rust 1.85.0 regardless of which supported ratatui backend feature you enable.
 
 ## Versioning
 
@@ -855,7 +823,6 @@ tui-textarea-2 is distributed under [The MIT License](./LICENSE).
 [clippy]: https://github.com/srothgan/tui-textarea/actions/workflows/clippy.yml
 [codecov-badge]: https://codecov.io/gh/srothgan/tui-textarea/graph/badge.svg
 [codecov]: https://codecov.io/gh/srothgan/tui-textarea
-[tui-rs]: https://github.com/fdehau/tui-rs
 [ratatui]: https://github.com/ratatui/ratatui
 [crossterm]: https://docs.rs/crossterm/latest/crossterm/
 [termion]: https://docs.rs/termion/latest/termion/

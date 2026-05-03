@@ -1,5 +1,4 @@
-// We use empty backend for our benchmark instead of tui::backend::TestBackend to make impact of benchmark from tui-rs
-// as small as possible.
+// We use an empty backend for benchmarks instead of a full test backend to keep backend overhead out of the results.
 
 use ratatui::backend::{Backend, WindowSize};
 use ratatui::buffer::Cell;

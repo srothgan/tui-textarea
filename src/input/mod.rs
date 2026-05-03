@@ -1,10 +1,6 @@
-#[cfg(any(
-    feature = "crossterm",
-    feature = "crossterm_0_28",
-    feature = "tuirs-crossterm"
-))]
+#[cfg(any(feature = "crossterm", feature = "crossterm_0_28"))]
 mod crossterm;
-#[cfg(any(feature = "termion", feature = "tuirs-termion"))]
+#[cfg(feature = "termion")]
 mod termion;
 #[cfg(feature = "termwiz")]
 mod termwiz;
@@ -120,7 +116,12 @@ pub struct Input {
 mod tests {
     use super::*;
 
-    #[allow(dead_code)]
+    #[cfg(any(
+        feature = "crossterm",
+        feature = "crossterm_0_28",
+        feature = "termion",
+        feature = "termwiz"
+    ))]
     pub(crate) fn input(key: Key, ctrl: bool, alt: bool, shift: bool) -> Input {
         Input {
             key,
