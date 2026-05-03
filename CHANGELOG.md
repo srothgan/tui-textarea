@@ -1,3 +1,14 @@
+<a id="v0.11.0"></a>
+# [v0.11.0](https://github.com/srothgan/tui-textarea/releases/tag/v0.11.0) - 2026-05-03
+
+- **BREAKING:** Remove legacy `tui-rs` feature support and the `tuirs-*` examples; this fork now supports ratatui integrations only.
+- Add a screen/data cursor mapping layer to preserve visual columns correctly across wrapped rows containing tabs or wide Unicode characters.
+- Rework wrapped cursor movement and rendering to use the cached screen map shared by the widget and cursor logic.
+- Add regression tests for wrapped cursor movement across mixed-width text.
+- Add an opt-in fixed-size recording mode for crossterm examples via `TUI_TEXTAREA_RECORDING` and `TUI_TEXTAREA_RECORDING_SIZE`.
+
+[Changes][v0.11.0]
+
 <a id="v0.10.2"></a>
 # [v0.10.2](https://github.com/srothgan/tui-textarea/releases/tag/v0.10.2) - 2026-03-13
 
@@ -526,6 +537,7 @@ First release :tada:
 
 [Changes][v0.1.0]
 
+[v0.11.0]: https://github.com/srothgan/tui-textarea/compare/v0.10.2...v0.11.0
 [v0.10.2]: https://github.com/srothgan/tui-textarea/compare/v0.10.1...v0.10.2
 [v0.10.1]: https://github.com/srothgan/tui-textarea/compare/v0.10.0...v0.10.1
 [v0.10.0]: https://github.com/srothgan/tui-textarea/compare/v0.9.2...v0.10.0
