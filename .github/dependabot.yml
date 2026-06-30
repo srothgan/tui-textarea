@@ -1,9 +1,14 @@
 version: 2
 updates:
   - package-ecosystem: cargo
-    directory: "/"
+    directories:
+      - "/"
+      - "/bench"
+      - "/fuzz"
     schedule:
       interval: weekly
+    labels:
+      - dependencies
     open-pull-requests-limit: 10
     groups:
       patch-and-minor:
@@ -14,3 +19,5 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    labels:
+      - dependencies

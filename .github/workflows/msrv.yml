@@ -1,4 +1,4 @@
-name: Rust Check
+name: Rust MSRV
 
 on:
   pull_request:
@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 jobs:
-  cargo-check:
-    name: cargo check
+  cargo-msrv:
+    name: cargo check (rust 1.85.0)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.85.0
       - uses: Swatinem/rust-cache@v2.9.1
       - run: cargo check

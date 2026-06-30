@@ -2,7 +2,7 @@
 name: Compatibility request
 about: Request compatibility with ratatui/crossterm/etc.
 title: "[compat] "
-labels: ["compat-ratatui"]
+labels: ["enhancement"]
 assignees: []
 ---
 
