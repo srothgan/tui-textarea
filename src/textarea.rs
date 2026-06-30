@@ -14,6 +14,10 @@ use crate::util::{Pos, num_digits, spaces};
 use crate::widget::Viewport;
 use crate::word::{find_word_exclusive_end_forward, find_word_start_backward};
 use crate::wrap::{WrapMode, WrappedLine, effective_wrap_width, wrapped_rows};
+#[cfg(feature = "arbitrary")]
+use arbitrary::Arbitrary;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
 use std::cmp::{self, Ordering};
 use std::fmt;
@@ -60,6 +64,62 @@ struct CustomHighlight {
     range: ((usize, usize), (usize, usize)),
     style: Style,
     priority: u8,
+}
+
+/// A caller-provided text span that should be treated as an indivisible editing unit.
+///
+/// Columns are character columns, matching [`TextArea::cursor`]. Ranges are half-open:
+/// `start_col..end_col`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct AtomicRange {
+    pub row: usize,
+    pub start_col: usize,
+    pub end_col: usize,
+}
+
+/// Bias used when a cursor position falls strictly inside an atomic range.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum AtomicCursorBias {
+    Backward,
+    Forward,
+}
+
+/// Direction used when checking whether an atomic range should be deleted at the cursor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum AtomicDeleteDirection {
+    Backward,
+    Forward,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct AtomicRangeError {
+    pub rejected: Vec<RejectedAtomicRange>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct RejectedAtomicRange {
+    pub range: AtomicRange,
+    pub reason: AtomicRangeRejectReason,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "arbitrary", derive(Arbitrary))]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum AtomicRangeRejectReason {
+    Empty,
+    RowOutOfBounds,
+    ColumnOutOfBounds,
+    OverlapsPrevious,
 }
 
 /// Measured textarea height information for a given width.
@@ -149,6 +209,7 @@ pub struct TextArea<'a> {
     selection_start: Option<DataCursor>,
     select_style: Style,
     custom_highlights: Vec<CustomHighlight>,
+    atomic_ranges: Vec<AtomicRange>,
     measure_cache: Option<(u16, TextAreaMeasure)>,
     pub(crate) screen_lines: RefCell<Vec<ScreenLine>>,
     pub(crate) data_pointers: RefCell<Vec<DataLine>>,
@@ -266,6 +327,7 @@ impl<'a> TextArea<'a> {
             selection_start: None,
             select_style: Style::default().bg(Color::LightBlue),
             custom_highlights: Default::default(),
+            atomic_ranges: Vec::new(),
             measure_cache: None,
             screen_lines: RefCell::new(Vec::new()),
             data_pointers: RefCell::new(Vec::new()),
@@ -787,8 +849,163 @@ impl<'a> TextArea<'a> {
         let after = Pos::new(row, col, after_offset);
         let edit = Edit::new(kind, before, after);
         self.history.push(edit);
+        self.atomic_ranges.clear();
         self.refresh_screen_map();
         self.reset_measure_cache();
+    }
+
+    fn validate_atomic_ranges<I>(&self, ranges: I) -> Result<Vec<AtomicRange>, AtomicRangeError>
+    where
+        I: IntoIterator<Item = AtomicRange>,
+    {
+        let mut ranges: Vec<_> = ranges.into_iter().collect();
+        ranges.sort_by_key(|range| (range.row, range.start_col));
+
+        let mut valid = Vec::with_capacity(ranges.len());
+        let mut rejected = Vec::new();
+        let mut previous_valid: Option<AtomicRange> = None;
+
+        for range in ranges {
+            let reason = if range.start_col == range.end_col {
+                Some(AtomicRangeRejectReason::Empty)
+            } else if range.row >= self.lines.len() {
+                Some(AtomicRangeRejectReason::RowOutOfBounds)
+            } else {
+                let line_len = self.lines[range.row].chars().count();
+                if range.start_col > range.end_col || range.end_col > line_len {
+                    Some(AtomicRangeRejectReason::ColumnOutOfBounds)
+                } else if previous_valid.is_some_and(|previous| {
+                    previous.row == range.row && range.start_col < previous.end_col
+                }) {
+                    Some(AtomicRangeRejectReason::OverlapsPrevious)
+                } else {
+                    None
+                }
+            };
+
+            if let Some(reason) = reason {
+                rejected.push(RejectedAtomicRange { range, reason });
+            } else {
+                previous_valid = Some(range);
+                valid.push(range);
+            }
+        }
+
+        if rejected.is_empty() {
+            Ok(valid)
+        } else {
+            Err(AtomicRangeError { rejected })
+        }
+    }
+
+    fn atomic_range_containing_cursor(&self, cursor: DataCursor) -> Option<AtomicRange> {
+        self.atomic_ranges.iter().copied().find(|range| {
+            range.row == cursor.0 && range.start_col < cursor.1 && cursor.1 < range.end_col
+        })
+    }
+
+    fn normalize_data_cursor_around_atomic_ranges(
+        &self,
+        cursor: DataCursor,
+        bias: AtomicCursorBias,
+    ) -> DataCursor {
+        let Some(range) = self.atomic_range_containing_cursor(cursor) else {
+            return cursor;
+        };
+
+        match bias {
+            AtomicCursorBias::Backward => DataCursor(range.row, range.start_col),
+            AtomicCursorBias::Forward => DataCursor(range.row, range.end_col),
+        }
+    }
+
+    fn atomic_range_at_data_cursor(
+        &self,
+        cursor: DataCursor,
+        direction: AtomicDeleteDirection,
+    ) -> Option<AtomicRange> {
+        self.atomic_ranges
+            .iter()
+            .copied()
+            .find(|range| match direction {
+                AtomicDeleteDirection::Backward => {
+                    range.row == cursor.0 && range.start_col < cursor.1 && cursor.1 <= range.end_col
+                }
+                AtomicDeleteDirection::Forward => {
+                    range.row == cursor.0 && range.start_col <= cursor.1 && cursor.1 < range.end_col
+                }
+            })
+    }
+
+    fn movement_atomic_bias(m: CursorMove) -> AtomicCursorBias {
+        match m {
+            CursorMove::Back
+            | CursorMove::Up
+            | CursorMove::Head
+            | CursorMove::Top
+            | CursorMove::WordBack
+            | CursorMove::ParagraphBack => AtomicCursorBias::Backward,
+            CursorMove::Forward
+            | CursorMove::Down
+            | CursorMove::End
+            | CursorMove::Bottom
+            | CursorMove::WordForward
+            | CursorMove::WordEnd
+            | CursorMove::ParagraphForward
+            | CursorMove::Jump(_, _)
+            | CursorMove::InViewport => AtomicCursorBias::Forward,
+        }
+    }
+
+    fn pos_at(&self, row: usize, col: usize) -> Pos {
+        Pos::new(row, col, self.line_offset(row, col))
+    }
+
+    fn expand_range_around_atomic_ranges(&self, start: Pos, end: Pos) -> (Pos, Pos) {
+        if self.atomic_ranges.is_empty() {
+            return (start, end);
+        }
+
+        let mut start_col = start.col;
+        let mut end_col = end.col;
+
+        if start.row == end.row {
+            for range in self
+                .atomic_ranges
+                .iter()
+                .filter(|range| range.row == start.row)
+            {
+                if range.start_col < end_col && start_col < range.end_col {
+                    start_col = start_col.min(range.start_col);
+                    end_col = end_col.max(range.end_col);
+                }
+            }
+        } else {
+            for range in self
+                .atomic_ranges
+                .iter()
+                .filter(|range| range.row == start.row)
+            {
+                if start_col < range.end_col {
+                    start_col = start_col.min(range.start_col);
+                }
+            }
+
+            for range in self
+                .atomic_ranges
+                .iter()
+                .filter(|range| range.row == end.row)
+            {
+                if range.start_col < end_col {
+                    end_col = end_col.max(range.end_col);
+                }
+            }
+        }
+
+        (
+            self.pos_at(start.row, start_col),
+            self.pos_at(end.row, end_col),
+        )
     }
 
     /// Insert a single character at current cursor position.
@@ -807,6 +1024,7 @@ impl<'a> TextArea<'a> {
         }
 
         self.delete_selection(false);
+        self.normalize_cursor_around_atomic_ranges(AtomicCursorBias::Forward);
         let DataCursor(row, col) = self.cursor;
         let line = &mut self.lines[row];
         let i = line
@@ -838,6 +1056,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn insert_str<S: AsRef<str>>(&mut self, s: S) -> bool {
         let modified = self.delete_selection(false);
+        self.normalize_cursor_around_atomic_ranges(AtomicCursorBias::Forward);
         let mut lines: Vec<_> = s
             .as_ref()
             .split('\n')
@@ -845,13 +1064,14 @@ impl<'a> TextArea<'a> {
             .collect();
         match lines.len() {
             0 => modified,
-            1 => self.insert_piece(lines.remove(0)),
-            _ => self.insert_chunk(lines),
+            1 => self.insert_piece(lines.remove(0)) || modified,
+            _ => self.insert_chunk(lines) || modified,
         }
     }
 
     fn insert_chunk(&mut self, chunk: Vec<String>) -> bool {
         debug_assert!(chunk.len() > 1, "Chunk size must be > 1: {:?}", chunk);
+        self.normalize_cursor_around_atomic_ranges(AtomicCursorBias::Forward);
 
         let DataCursor(row, col) = self.cursor;
         let line = &mut self.lines[row];
@@ -881,6 +1101,7 @@ impl<'a> TextArea<'a> {
         if s.is_empty() {
             return false;
         }
+        self.normalize_cursor_around_atomic_ranges(AtomicCursorBias::Forward);
 
         let DataCursor(row, col) = self.cursor;
         let line = &mut self.lines[row];
@@ -904,6 +1125,7 @@ impl<'a> TextArea<'a> {
     }
 
     fn delete_range(&mut self, start: Pos, end: Pos, should_yank: bool) {
+        let (start, end) = self.expand_range_around_atomic_ranges(start, end);
         self.cursor = DataCursor(start.row, start.col);
 
         if start.row == end.row {
@@ -1002,15 +1224,10 @@ impl<'a> TextArea<'a> {
         if let Some((offset_delta, col_delta)) = find_end(&line[start_offset..]) {
             let end_offset = start_offset + offset_delta;
             let end_col = start_col + col_delta;
-            let removed = self.lines[start_row]
-                .drain(start_offset..end_offset)
-                .as_str()
-                .to_string();
-            self.yank = removed.clone().into();
-            self.push_history(
-                EditKind::DeleteStr(removed),
+            self.delete_range(
+                Pos::new(start_row, start_col, start_offset),
                 Pos::new(start_row, end_col, end_offset),
-                start_offset,
+                true,
             );
             return true;
         }
@@ -1062,18 +1279,12 @@ impl<'a> TextArea<'a> {
         }
 
         let DataCursor(row, _) = self.cursor;
-        let line = &mut self.lines[row];
+        let line = &self.lines[row];
         if let Some((i, _)) = line.char_indices().nth(col) {
             let (bytes, chars) = bytes_and_chars(chars, &line[i..]);
-            let removed = line.drain(i..i + bytes).as_str().to_string();
-
-            self.cursor = DataCursor(row, col);
-            self.push_history(
-                EditKind::DeleteStr(removed.clone()),
-                Pos::new(row, col + chars, i + bytes),
-                i,
-            );
-            self.yank = removed.into();
+            let start = Pos::new(row, col, i);
+            let end = Pos::new(row, col + chars, i + bytes);
+            self.delete_range(start, end, true);
             true
         } else {
             false
@@ -1127,6 +1338,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn insert_newline(&mut self) {
         self.delete_selection(false);
+        self.normalize_cursor_around_atomic_ranges(AtomicCursorBias::Forward);
 
         let DataCursor(row, col) = self.cursor;
         let line = &mut self.lines[row];
@@ -1190,6 +1402,12 @@ impl<'a> TextArea<'a> {
         if self.delete_selection(false) {
             return true;
         }
+        if self
+            .delete_atomic_range_at_cursor(AtomicDeleteDirection::Backward)
+            .is_some()
+        {
+            return true;
+        }
 
         let DataCursor(row, col) = self.cursor;
         if col == 0 {
@@ -1224,6 +1442,12 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn delete_next_char(&mut self) -> bool {
         if self.delete_selection(false) {
+            return true;
+        }
+        if self
+            .delete_atomic_range_at_cursor(AtomicDeleteDirection::Forward)
+            .is_some()
+        {
             return true;
         }
 
@@ -1306,6 +1530,12 @@ impl<'a> TextArea<'a> {
         if self.delete_selection(false) {
             return true;
         }
+        if self
+            .delete_atomic_range_at_cursor(AtomicDeleteDirection::Backward)
+            .is_some()
+        {
+            return true;
+        }
         let DataCursor(r, c) = self.cursor;
         if let Some(col) = find_word_start_backward(&self.lines[r], c) {
             self.delete_piece(col, c - col)
@@ -1334,6 +1564,12 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn delete_next_word(&mut self) -> bool {
         if self.delete_selection(false) {
+            return true;
+        }
+        if self
+            .delete_atomic_range_at_cursor(AtomicDeleteDirection::Forward)
+            .is_some()
+        {
             return true;
         }
         let DataCursor(r, c) = self.cursor;
@@ -1399,6 +1635,7 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn paste(&mut self) -> bool {
         self.delete_selection(false);
+        self.normalize_cursor_around_atomic_ranges(AtomicCursorBias::Forward);
         match self.yank.clone() {
             YankText::Piece(s) => self.insert_piece(s),
             YankText::Chunk(c) => self.insert_chunk(c),
@@ -1491,6 +1728,83 @@ impl<'a> TextArea<'a> {
     /// ```
     pub fn is_selecting(&self) -> bool {
         self.selection_start.is_some()
+    }
+
+    /// Set atomic ranges, panicking if any range is invalid.
+    ///
+    /// This is the ergonomic API for trusted callers. Use [`TextArea::try_set_atomic_ranges`] when
+    /// parser errors should be reported instead of panicking.
+    pub fn set_atomic_ranges<I>(&mut self, ranges: I)
+    where
+        I: IntoIterator<Item = AtomicRange>,
+    {
+        if let Err(err) = self.try_set_atomic_ranges(ranges) {
+            panic!("invalid atomic ranges: {err:?}");
+        }
+    }
+
+    /// Set atomic ranges and report invalid input without changing the current ranges.
+    pub fn try_set_atomic_ranges<I>(&mut self, ranges: I) -> Result<(), AtomicRangeError>
+    where
+        I: IntoIterator<Item = AtomicRange>,
+    {
+        let ranges = self.validate_atomic_ranges(ranges)?;
+        self.atomic_ranges = ranges;
+        self.normalize_cursor_around_atomic_ranges(AtomicCursorBias::Forward);
+        if let Some(selection_start) = self.selection_start {
+            let normalized = self.normalize_data_cursor_around_atomic_ranges(
+                selection_start,
+                AtomicCursorBias::Backward,
+            );
+            self.selection_start = Some(normalized);
+            if self.selection_positions().is_none() {
+                self.cancel_selection();
+            }
+        }
+        Ok(())
+    }
+
+    /// Remove all configured atomic ranges.
+    pub fn clear_atomic_ranges(&mut self) {
+        self.atomic_ranges.clear();
+    }
+
+    /// Get the configured atomic ranges, sorted by `(row, start_col)`.
+    pub fn atomic_ranges(&self) -> &[AtomicRange] {
+        &self.atomic_ranges
+    }
+
+    /// Normalize the current cursor if it is strictly inside an atomic range.
+    ///
+    /// Returns `true` when the cursor moved.
+    pub fn normalize_cursor_around_atomic_ranges(&mut self, bias: AtomicCursorBias) -> bool {
+        let normalized = self.normalize_data_cursor_around_atomic_ranges(self.cursor, bias);
+        if normalized == self.cursor {
+            false
+        } else {
+            self.cursor = normalized;
+            true
+        }
+    }
+
+    /// Return the atomic range hit by a directional deletion at the current cursor.
+    pub fn atomic_range_at_cursor(&self, direction: AtomicDeleteDirection) -> Option<AtomicRange> {
+        self.atomic_range_at_data_cursor(self.cursor, direction)
+    }
+
+    /// Delete the atomic range hit by a directional deletion at the current cursor.
+    ///
+    /// The returned range is the pre-delete range. As with other successful content mutations,
+    /// configured atomic ranges are cleared after the edit is recorded.
+    pub fn delete_atomic_range_at_cursor(
+        &mut self,
+        direction: AtomicDeleteDirection,
+    ) -> Option<AtomicRange> {
+        let range = self.atomic_range_at_cursor(direction)?;
+        let start = self.pos_at(range.row, range.start_col);
+        let end = self.pos_at(range.row, range.end_col);
+        self.delete_range(start, end, false);
+        Some(range)
     }
 
     fn line_offset(&self, row: usize, col: usize) -> usize {
@@ -1656,7 +1970,9 @@ impl<'a> TextArea<'a> {
             } else {
                 self.cancel_selection();
             }
-            self.cursor = self.screen_to_data_cursor(cursor);
+            let cursor = self.screen_to_data_cursor(cursor);
+            self.cursor = self
+                .normalize_data_cursor_around_atomic_ranges(cursor, Self::movement_atomic_bias(m));
         }
     }
 
@@ -1675,6 +1991,7 @@ impl<'a> TextArea<'a> {
         if let Some(cursor) = self.history.undo(&mut self.lines) {
             self.cancel_selection();
             self.cursor = self.clamp_cursor_to_buffer(cursor);
+            self.atomic_ranges.clear();
             self.refresh_screen_map();
             self.reset_measure_cache();
             true
@@ -1700,6 +2017,7 @@ impl<'a> TextArea<'a> {
         if let Some(cursor) = self.history.redo(&mut self.lines) {
             self.cancel_selection();
             self.cursor = self.clamp_cursor_to_buffer(cursor);
+            self.atomic_ranges.clear();
             self.refresh_screen_map();
             self.reset_measure_cache();
             true
@@ -2238,6 +2556,7 @@ impl<'a> TextArea<'a> {
         self.history = History::new(self.history.max_items());
         self.selection_start = None;
         self.custom_highlights.clear();
+        self.atomic_ranges.clear();
         self.viewport = Viewport::default();
         self.refresh_screen_map();
         self.reset_measure_cache();

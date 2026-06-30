@@ -42,5 +42,8 @@ use termion;
 pub use cursor::CursorMove;
 pub use input::{Input, Key};
 pub use scroll::Scrolling;
-pub use textarea::{TextArea, TextAreaMeasure};
+pub use textarea::{
+    AtomicCursorBias, AtomicDeleteDirection, AtomicRange, AtomicRangeError,
+    AtomicRangeRejectReason, RejectedAtomicRange, TextArea, TextAreaMeasure,
+};
 pub use wrap::WrapMode;

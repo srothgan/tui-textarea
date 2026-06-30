@@ -1,6 +1,9 @@
 #![cfg(feature = "serde")]
 
-use tui_textarea::{CursorMove, Input, Key, Scrolling};
+use tui_textarea::{
+    AtomicCursorBias, AtomicDeleteDirection, AtomicRange, AtomicRangeError,
+    AtomicRangeRejectReason, CursorMove, Input, Key, RejectedAtomicRange, Scrolling,
+};
 
 #[test]
 fn test_serde_key() {
@@ -44,4 +47,36 @@ fn test_serde_cursor_move() {
     assert_eq!(s, r#""Forward""#);
     let d: CursorMove = serde_json::from_str(&s).unwrap();
     assert_eq!(d, c);
+}
+
+#[test]
+fn test_serde_atomic_types() {
+    let range = AtomicRange {
+        row: 1,
+        start_col: 2,
+        end_col: 5,
+    };
+    let s = serde_json::to_string(&range).unwrap();
+    assert_eq!(s, r#"{"row":1,"start_col":2,"end_col":5}"#);
+    let d: AtomicRange = serde_json::from_str(&s).unwrap();
+    assert_eq!(d, range);
+
+    let error = AtomicRangeError {
+        rejected: vec![RejectedAtomicRange {
+            range,
+            reason: AtomicRangeRejectReason::OverlapsPrevious,
+        }],
+    };
+    let s = serde_json::to_string(&error).unwrap();
+    let d: AtomicRangeError = serde_json::from_str(&s).unwrap();
+    assert_eq!(d, error);
+
+    assert_eq!(
+        serde_json::to_string(&AtomicCursorBias::Forward).unwrap(),
+        r#""Forward""#
+    );
+    assert_eq!(
+        serde_json::to_string(&AtomicDeleteDirection::Backward).unwrap(),
+        r#""Backward""#
+    );
 }

@@ -19,6 +19,7 @@ Since this fork was created, it has added or integrated:
 - Wrapped-line Up/Down cursor navigation that follows visual rows
 - Row measurement via `TextAreaMeasure`, `TextArea::measure()`, `set_min_rows()`, and `set_max_rows()`
 - Bulk whole-buffer replacement via `TextArea::set_lines()`
+- Opt-in atomic ranges for caller-owned placeholders, mentions, or other indivisible spans
 
 **Features:**
 
@@ -33,6 +34,7 @@ Since this fork was created, it has added or integrated:
 - Search with regular expressions
 - Text selection
 - Custom highlighted ranges
+- Opt-in atomic ranges for indivisible editing spans
 - Placeholder and masking support
 - Mouse scrolling
 - Yank support. Paste text deleted with `C-k`, `C-j`, ...
@@ -453,6 +455,32 @@ textarea.custom_highlight(
 
 Call `TextArea::clear_custom_highlight()` to remove all custom highlighted ranges.
 
+### Configure atomic ranges
+
+Applications can mark caller-parsed text spans as atomic with `TextArea::set_atomic_ranges()`. Atomic ranges use row and
+character-column coordinates, remain separate from rendering, and are cleared after successful content mutations so the
+application can recompute them from the new text.
+
+```rust,ignore
+use ratatui::style::{Color, Style};
+use tui_textarea::{AtomicRange, TextArea};
+
+let mut textarea = TextArea::from(["Send [[image:cat.png]] now"]);
+textarea.set_atomic_ranges([AtomicRange {
+    row: 0,
+    start_col: 5,
+    end_col: 22,
+}]);
+
+textarea.custom_highlight(
+    ((0, 5), (0, 22)),
+    Style::default().fg(Color::Yellow),
+    10,
+);
+```
+
+See [`atomic_ranges` example](./examples/atomic_ranges.rs) for a small caller-owned parsing flow.
+
 ### Configure max history size
 
 By default, past 50 modifications are stored as edit history. The history is used for undo/redo. To change how many past
@@ -569,6 +597,11 @@ notify how to move the cursor.
 | `textarea.select_all()`                              | Select entire text                              |
 | `textarea.custom_highlight(range, style, priority)`  | Add a custom highlighted range                  |
 | `textarea.clear_custom_highlight()`                  | Clear all custom highlights                     |
+| `textarea.set_atomic_ranges(ranges)`                 | Set caller-owned indivisible text spans         |
+| `textarea.try_set_atomic_ranges(ranges)`             | Validate and set atomic ranges without panics   |
+| `textarea.clear_atomic_ranges()`                     | Clear all atomic ranges                         |
+| `textarea.atomic_ranges()`                           | Get configured atomic ranges                    |
+| `textarea.delete_atomic_range_at_cursor(direction)`  | Delete an atom at the cursor as one edit        |
 | `textarea.move_cursor(CursorMove::Forward)`          | Move cursor forward by one character            |
 | `textarea.move_cursor(CursorMove::Back)`             | Move cursor backward by one character           |
 | `textarea.move_cursor(CursorMove::Up)`               | Move cursor up by one line                      |
@@ -760,6 +793,12 @@ Values of the following types can be serialized/deserialized:
 - `CursorMove`
 - `Scrolling`
 - `WrapMode`
+- `AtomicRange`
+- `AtomicCursorBias`
+- `AtomicDeleteDirection`
+- `AtomicRangeError`
+- `RejectedAtomicRange`
+- `AtomicRangeRejectReason`
 
 Here is an example for deserializing key input from JSON using [serde_json][].
 
