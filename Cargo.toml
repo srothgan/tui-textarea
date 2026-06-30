@@ -5,7 +5,7 @@ repository = "https://github.com/srothgan/tui-textarea"
 documentation = "https://docs.rs/tui-textarea-2/latest/tui_textarea/"
 version = "0.11.0"
 edition = "2024"
-rust-version = "1.85.0" # for Rust 2024 edition support
+rust-version = "1.88.0" # for Ratatui 0.30 split crates
 authors = ["Simon Peter Rothgang <simonrothgang@icloud.com>", "rhysd <lin90162@yahoo.co.jp>"]
 description = """
 tui-textarea is a simple yet powerful text editor widget for ratatui. Multi-line

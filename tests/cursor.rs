@@ -25,7 +25,7 @@ fn empty_textarea() {
         Jump(u16::MAX, u16::MAX),
     ] {
         t.move_cursor(m);
-        assert_eq!(t.cursor(), (0, 0), "{:?}", m);
+        assert_eq!(t.cursor(), (0, 0), "{m:?}");
     }
 }
 

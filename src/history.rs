@@ -29,7 +29,7 @@ impl EditKind {
                 lines.insert(before.row + 1, next_line);
             }
             EditKind::DeleteNewline => {
-                debug_assert!(before.row > 0, "invalid pos: {:?}", before);
+                debug_assert!(before.row > 0, "invalid pos: {before:?}");
                 let line = lines.remove(before.row);
                 lines[before.row - 1].push_str(&line);
             }
@@ -40,7 +40,7 @@ impl EditKind {
                 lines[after.row].drain(after.offset..after.offset + s.len());
             }
             EditKind::InsertChunk(c) => {
-                debug_assert!(c.len() > 1, "Chunk size must be > 1: {:?}", c);
+                debug_assert!(c.len() > 1, "Chunk size must be > 1: {c:?}");
 
                 // Handle first line of chunk
                 let first_line = &mut lines[before.row];
@@ -56,7 +56,7 @@ impl EditKind {
                 lines.splice(next_row..next_row, c[1..c.len() - 1].iter().cloned());
             }
             EditKind::DeleteChunk(c) => {
-                debug_assert!(c.len() > 1, "Chunk size must be > 1: {:?}", c);
+                debug_assert!(c.len() > 1, "Chunk size must be > 1: {c:?}");
 
                 // Remove middle lines of chunk
                 let mut last_line = lines

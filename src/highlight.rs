@@ -322,7 +322,7 @@ mod tests {
         b.width = offset;
         let built = b.build(text);
         let want = offset + built.as_ref().width();
-        assert_eq!(b.width, want, "in={:?}, out={:?}", text, built); // Check post condition
+        assert_eq!(b.width, want, "in={text:?}, out={built:?}"); // Check post condition
         built
     }
 

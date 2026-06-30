@@ -53,7 +53,7 @@ impl From<Vec<String>> for YankText {
 impl fmt::Display for YankText {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Piece(s) => write!(f, "{}", s),
+            Self::Piece(s) => write!(f, "{s}"),
             Self::Chunk(ss) => write!(f, "{}", ss.join("\n")),
         }
     }
@@ -763,7 +763,7 @@ impl<'a> TextArea<'a> {
         };
 
         // Check invariants
-        debug_assert!(!self.lines.is_empty(), "no line after {:?}", input);
+        debug_assert!(!self.lines.is_empty(), "no line after {input:?}");
         let DataCursor(r, c) = self.cursor;
         debug_assert!(
             self.lines.len() > r,
@@ -1070,7 +1070,7 @@ impl<'a> TextArea<'a> {
     }
 
     fn insert_chunk(&mut self, chunk: Vec<String>) -> bool {
-        debug_assert!(chunk.len() > 1, "Chunk size must be > 1: {:?}", chunk);
+        debug_assert!(chunk.len() > 1, "Chunk size must be > 1: {chunk:?}");
         self.normalize_cursor_around_atomic_ranges(AtomicCursorBias::Forward);
 
         let DataCursor(row, col) = self.cursor;
@@ -1107,8 +1107,7 @@ impl<'a> TextArea<'a> {
         let line = &mut self.lines[row];
         debug_assert!(
             !s.contains('\n'),
-            "string given to TextArea::insert_piece must not contain newline: {:?}",
-            line,
+            "string given to TextArea::insert_piece must not contain newline: {line:?}",
         );
 
         let i = line

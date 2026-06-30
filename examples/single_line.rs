@@ -19,7 +19,7 @@ fn validate(textarea: &mut TextArea) -> bool {
             Block::default()
                 .borders(Borders::ALL)
                 .border_style(Color::LightRed)
-                .title(format!("ERROR: {}", err)),
+                .title(format!("ERROR: {err}")),
         );
         false
     } else {

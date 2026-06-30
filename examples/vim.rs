@@ -31,7 +31,7 @@ impl Mode {
             Self::Visual => "type y to yank, type d to delete, type Esc to back to normal mode",
             Self::Operator(_) => "move cursor to apply operator",
         };
-        let title = format!("{} MODE ({})", self, help);
+        let title = format!("{self} MODE ({help})");
         Block::default().borders(Borders::ALL).title(title)
     }
 
@@ -52,7 +52,7 @@ impl fmt::Display for Mode {
             Self::Normal => write!(f, "NORMAL"),
             Self::Insert => write!(f, "INSERT"),
             Self::Visual => write!(f, "VISUAL"),
-            Self::Operator(c) => write!(f, "OPERATOR({})", c),
+            Self::Operator(c) => write!(f, "OPERATOR({c})"),
         }
     }
 }

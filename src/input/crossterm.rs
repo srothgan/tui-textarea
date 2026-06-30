@@ -147,7 +147,7 @@ mod tests {
                 input(Key::Null, true, false, false),
             ),
         ] {
-            assert_eq!(Input::from(from), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from), to, "{from:?} -> {to:?}");
         }
     }
 
@@ -182,7 +182,7 @@ mod tests {
                 input(Key::Null, true, false, false),
             ),
         ] {
-            assert_eq!(Input::from(from), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from), to, "{from:?} -> {to:?}");
         }
     }
 
@@ -202,7 +202,7 @@ mod tests {
             ),
             (Event::FocusGained, input(Key::Null, false, false, false)),
         ] {
-            assert_eq!(Input::from(from.clone()), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from.clone()), to, "{from:?} -> {to:?}");
         }
     }
 
@@ -212,6 +212,6 @@ mod tests {
         let mut from = key_event(KeyCode::Char('a'), KeyModifiers::empty());
         from.kind = KeyEventKind::Release;
         let to = input(Key::Null, false, false, false);
-        assert_eq!(Input::from(from), to, "{:?} -> {:?}", from, to);
+        assert_eq!(Input::from(from), to, "{from:?} -> {to:?}");
     }
 }
