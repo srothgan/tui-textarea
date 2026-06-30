@@ -86,6 +86,16 @@ jobs:
           git tag -a "${{ steps.meta.outputs.tag }}" -m "${{ steps.meta.outputs.tag }}"
           git push origin "${{ steps.meta.outputs.tag }}"
 
+      - name: Extract changelog entry
+        if: steps.tag.outputs.exists == 'false'
+        shell: bash
+        run: |
+          awk 'index($0, "## [${{ steps.meta.outputs.version }}]") == 1 {found=1; next} found && /^## \[/{exit} found{print}' CHANGELOG.md > release-notes.md
+          if [[ ! -s release-notes.md ]]; then
+            echo "No changelog entry found for ${{ steps.meta.outputs.version }}"
+            exit 1
+          fi
+
       - name: Create GitHub release
         if: steps.tag.outputs.exists == 'false'
         env:
@@ -94,4 +104,4 @@ jobs:
           gh release create "${{ steps.meta.outputs.tag }}" \
             --repo "${{ github.repository }}" \
             --verify-tag \
-            --generate-notes
+            --notes-file release-notes.md
