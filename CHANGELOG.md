@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.12.1] - 2026-07-10 [Changes][v0.12.1]
+
+### Features
+
+- **Native cursor integration** (#26, @srothgan): Add opt-in `CursorRenderMode::Hidden` and `TextArea::rendered_cursor_position()` for placing backend-owned terminal cursors while preserving the default buffer-drawn cursor behavior.
+
 ## [0.12.0] - 2026-06-30 [Changes][v0.12.0]
 
 ### Features
@@ -491,6 +497,7 @@ First release :tada:
 - docs.rs: https://docs.rs/tui-textarea/latest/tui_textarea/
 
 
+[v0.12.1]: https://github.com/srothgan/tui-textarea/compare/v0.12.0...v0.12.1
 [v0.12.0]: https://github.com/srothgan/tui-textarea/compare/v0.11.0...v0.12.0
 [v0.11.0]: https://github.com/srothgan/tui-textarea/compare/v0.10.2...v0.11.0
 [v0.10.2]: https://github.com/srothgan/tui-textarea/compare/v0.10.1...v0.10.2
