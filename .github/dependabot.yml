@@ -9,6 +9,7 @@ updates:
       interval: weekly
     labels:
       - dependencies
+      - cargo
     open-pull-requests-limit: 10
     groups:
       patch-and-minor:
@@ -21,3 +22,4 @@ updates:
       interval: weekly
     labels:
       - dependencies
+      - github-actions
