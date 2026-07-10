@@ -44,6 +44,6 @@ pub use input::{Input, Key};
 pub use scroll::Scrolling;
 pub use textarea::{
     AtomicCursorBias, AtomicDeleteDirection, AtomicRange, AtomicRangeError,
-    AtomicRangeRejectReason, RejectedAtomicRange, TextArea, TextAreaMeasure,
+    AtomicRangeRejectReason, CursorRenderMode, RejectedAtomicRange, TextArea, TextAreaMeasure,
 };
 pub use wrap::WrapMode;

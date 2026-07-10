@@ -1,8 +1,8 @@
 use crate::cursor::{CursorMove, DataCursor, ScreenCursor};
-use crate::highlight::LineHighlighter;
+use crate::highlight::{CursorCellRender, LineHighlighter};
 use crate::history::{Edit, EditKind, History};
 use crate::input::{Input, Key};
-use crate::ratatui::layout::{Alignment, Rect};
+use crate::ratatui::layout::{Alignment, Position, Rect};
 use crate::ratatui::style::{Color, Modifier, Style};
 use crate::ratatui::text::Line;
 use crate::ratatui::widgets::{Block, Widget};
@@ -135,6 +135,20 @@ pub struct TextAreaMeasure {
     pub max_rows: u16,
 }
 
+/// Controls whether [`TextArea`] draws its own visual cursor into the rendered buffer.
+///
+/// This does not control terminal cursor shape or blinking. Backend-specific cursor
+/// shape setup, such as crossterm cursor styles, remains caller-owned.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum CursorRenderMode {
+    /// Draw the textarea cursor as a styled cell in the Ratatui buffer.
+    #[default]
+    Cell,
+    /// Do not draw a textarea-owned cursor cell.
+    Hidden,
+}
+
 /// A type to manage state of textarea. These are some important methods:
 ///
 /// - [`TextArea::default`] creates an empty textarea.
@@ -196,6 +210,7 @@ pub struct TextArea<'a> {
     line_number_style: Option<Style>,
     pub(crate) viewport: Viewport,
     pub(crate) cursor_style: Style,
+    cursor_render_mode: CursorRenderMode,
     yank: YankText,
     #[cfg(feature = "search")]
     search: Search,
@@ -214,6 +229,7 @@ pub struct TextArea<'a> {
     pub(crate) screen_lines: RefCell<Vec<ScreenLine>>,
     pub(crate) data_pointers: RefCell<Vec<DataLine>>,
     pub(crate) area: Cell<Rect>,
+    pub(crate) rendered_cursor_position: Cell<Option<Position>>,
 }
 
 /// Convert any iterator whose elements can be converted into [`String`] into [`TextArea`]. Each [`String`] element is
@@ -314,6 +330,7 @@ impl<'a> TextArea<'a> {
             line_number_style: None,
             viewport: Viewport::default(),
             cursor_style: Style::default().add_modifier(Modifier::REVERSED),
+            cursor_render_mode: CursorRenderMode::Cell,
             yank: YankText::default(),
             #[cfg(feature = "search")]
             search: Search::default(),
@@ -332,6 +349,7 @@ impl<'a> TextArea<'a> {
             screen_lines: RefCell::new(Vec::new()),
             data_pointers: RefCell::new(Vec::new()),
             area: Cell::new(Rect::default()),
+            rendered_cursor_position: Cell::new(None),
         };
         textarea.screen_map_load();
         textarea
@@ -2032,9 +2050,13 @@ impl<'a> TextArea<'a> {
         lnum_len: u8,
     ) -> Line<'b> {
         let fragment = &line[wrapped.start_byte..wrapped.end_byte];
+        let cursor_cell = match self.cursor_render_mode {
+            CursorRenderMode::Cell => CursorCellRender::Draw(self.cursor_style),
+            CursorRenderMode::Hidden => CursorCellRender::Hidden,
+        };
         let mut hl = LineHighlighter::new(
             fragment,
-            self.cursor_style,
+            cursor_cell,
             self.tab_len,
             self.mask,
             self.select_style,
@@ -2497,8 +2519,11 @@ impl<'a> TextArea<'a> {
         self.mask
     }
 
-    /// Set the style of cursor. By default, a cursor is rendered in the reversed color. Setting the same style as
-    /// cursor line hides a cursor.
+    /// Set the style of the buffer-drawn cursor cell.
+    ///
+    /// By default, a cursor is rendered in the reversed color. This style is visible
+    /// when [`CursorRenderMode::Cell`] is active. It is stored but has no visual
+    /// effect while [`CursorRenderMode::Hidden`] is active.
     /// ```
     /// use ratatui::style::{Style, Color};
     /// use tui_textarea::TextArea;
@@ -2516,6 +2541,46 @@ impl<'a> TextArea<'a> {
     /// Get the style of cursor.
     pub fn cursor_style(&self) -> Style {
         self.cursor_style
+    }
+
+    /// Set how the textarea-owned cursor is rendered into the Ratatui buffer.
+    ///
+    /// [`CursorRenderMode::Cell`] is the default and preserves the historical
+    /// behavior. [`CursorRenderMode::Hidden`] suppresses only the textarea-owned
+    /// cursor cell so applications can place a native terminal cursor with
+    /// [`TextArea::rendered_cursor_position`].
+    pub fn set_cursor_render_mode(&mut self, mode: CursorRenderMode) {
+        self.cursor_render_mode = mode;
+    }
+
+    /// Get the current cursor render mode.
+    pub fn cursor_render_mode(&self) -> CursorRenderMode {
+        self.cursor_render_mode
+    }
+
+    /// Get the cursor position calculated during the most recent render.
+    ///
+    /// This returns terminal-relative coordinates suitable for
+    /// `ratatui_core::terminal::Frame::set_cursor_position` after rendering this
+    /// widget. It returns `None` before the first render or when the cursor cannot be
+    /// represented inside the most recent render area. Cursor shape and blinking are
+    /// backend concerns and are not controlled by `tui-textarea-2`.
+    ///
+    /// ```ignore
+    /// use tui_textarea::{CursorRenderMode, TextArea};
+    ///
+    /// let mut textarea = TextArea::default();
+    /// textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+    ///
+    /// # let area = ratatui::layout::Rect::default();
+    /// # let mut frame: ratatui::Frame = unimplemented!();
+    /// frame.render_widget(&textarea, area);
+    /// if let Some(position) = textarea.rendered_cursor_position() {
+    ///     frame.set_cursor_position(position);
+    /// }
+    /// ```
+    pub fn rendered_cursor_position(&self) -> Option<Position> {
+        self.rendered_cursor_position.get()
     }
 
     /// Get slice of line texts. This method borrows the content, but not moves. Note that the returned slice will
@@ -2747,10 +2812,10 @@ impl<'a> TextArea<'a> {
     /// assert_eq!(m.preferred_rows, 2);
     /// ```
     pub fn measure(&mut self, width_cols: u16) -> TextAreaMeasure {
-        if let Some((cached_width, cached_result)) = self.measure_cache {
-            if cached_width == width_cols {
-                return cached_result;
-            }
+        if let Some((cached_width, cached_result)) = self.measure_cache
+            && cached_width == width_cols
+        {
+            return cached_result;
         }
 
         let area = Rect {

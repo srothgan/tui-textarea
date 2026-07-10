@@ -1,8 +1,8 @@
 use crate::ratatui::buffer::Buffer;
-use crate::ratatui::layout::Rect;
+use crate::ratatui::layout::{Position, Rect};
 use crate::ratatui::text::{Line, Span, Text};
 use crate::ratatui::widgets::{Paragraph, Widget};
-use crate::textarea::TextArea;
+use crate::textarea::{CursorRenderMode, TextArea};
 use crate::util::num_digits;
 use crate::wrap::WrapMode;
 use portable_atomic::{AtomicU64, Ordering};
@@ -88,6 +88,14 @@ fn next_scroll_top(prev_top: u16, cursor: u16, len: u16) -> u16 {
     }
 }
 
+struct RenderPlan {
+    inner_area: Rect,
+    top_row: u16,
+    top_col: u16,
+    rendered_cursor_position: Option<Position>,
+    placeholder_active: bool,
+}
+
 impl<'a> TextArea<'a> {
     fn text_widget(&'a self, top_row: usize, height: usize) -> Text<'a> {
         let lnum_len = num_digits(self.lines().len());
@@ -102,9 +110,13 @@ impl<'a> TextArea<'a> {
     }
 
     fn placeholder_widget(&'a self) -> Text<'a> {
-        let cursor = Span::styled(" ", self.cursor_style);
         let text = Span::raw(self.placeholder.as_str());
-        Text::from(Line::from(vec![cursor, text]))
+        if self.cursor_render_mode() == CursorRenderMode::Cell {
+            let cursor = Span::styled(" ", self.cursor_style);
+            Text::from(Line::from(vec![cursor, text]))
+        } else {
+            Text::from(Line::from(vec![text]))
+        }
     }
 
     fn scroll_top_row(&self, prev_top: u16, height: u16) -> u16 {
@@ -125,24 +137,25 @@ impl<'a> TextArea<'a> {
         }
         next_scroll_top(prev_top, cursor, width)
     }
-}
 
-impl Widget for &TextArea<'_> {
-    fn render(self, area: Rect, buf: &mut Buffer) {
+    fn render_plan(&self, area: Rect) -> RenderPlan {
         let inner_area = if let Some(b) = self.block() {
             b.inner(area)
         } else {
             area
         };
+
         if self.area.get() != inner_area {
             self.area.set(inner_area);
             self.screen_map_load();
         }
-        let Rect { width, height, .. } = inner_area;
 
+        let Rect { width, height, .. } = inner_area;
+        let placeholder_active = !self.placeholder.is_empty() && self.is_empty();
         let (prev_top_row, prev_top_col) = self.viewport.scroll_top();
-        let (text, style, top_row, top_col) = if !self.placeholder.is_empty() && self.is_empty() {
-            (self.placeholder_widget(), self.placeholder_style, 0, 0)
+
+        let (top_row, top_col) = if placeholder_active {
+            (0, 0)
         } else {
             let top_row = self.scroll_top_row(prev_top_row, height);
             let top_col = if self.wrap_mode() == WrapMode::None {
@@ -150,30 +163,98 @@ impl Widget for &TextArea<'_> {
             } else {
                 0
             };
+            (top_row, top_col)
+        };
+
+        let rendered_cursor_position =
+            self.rendered_position_in(inner_area, top_row, top_col, placeholder_active);
+
+        RenderPlan {
+            inner_area,
+            top_row,
+            top_col,
+            rendered_cursor_position,
+            placeholder_active,
+        }
+    }
+
+    fn rendered_position_in(
+        &self,
+        inner_area: Rect,
+        top_row: u16,
+        top_col: u16,
+        placeholder_active: bool,
+    ) -> Option<Position> {
+        if inner_area.width == 0 || inner_area.height == 0 {
+            return None;
+        }
+
+        if placeholder_active {
+            return Some(Position {
+                x: inner_area.x,
+                y: inner_area.y,
+            });
+        }
+
+        let cursor = self.screen_cursor();
+        let cursor_row = cursor.row;
+        let top_row = top_row as usize;
+        let height = inner_area.height as usize;
+        if cursor_row < top_row || top_row.saturating_add(height) <= cursor_row {
+            return None;
+        }
+
+        let mut cursor_col = cursor.col;
+        if self.line_number_style().is_some() {
+            cursor_col = cursor_col.saturating_add(num_digits(self.lines().len()) as usize + 2);
+        }
+
+        let top_col = top_col as usize;
+        let width = inner_area.width as usize;
+        if cursor_col < top_col || top_col.saturating_add(width) <= cursor_col {
+            return None;
+        }
+
+        Some(Position {
+            x: inner_area.x + (cursor_col - top_col) as u16,
+            y: inner_area.y + (cursor_row - top_row) as u16,
+        })
+    }
+}
+
+impl Widget for &TextArea<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let plan = self.render_plan(area);
+        let Rect { width, height, .. } = plan.inner_area;
+
+        let (text, style) = if plan.placeholder_active {
+            (self.placeholder_widget(), self.placeholder_style)
+        } else {
             (
-                self.text_widget(top_row as _, height as _),
+                self.text_widget(plan.top_row as _, height as _),
                 self.style(),
-                top_row,
-                top_col,
             )
         };
 
         // To get fine control over the text color and the surrrounding block they have to be rendered separately
         // see https://github.com/ratatui/ratatui/issues/144
-        let mut text_area = area;
+        let mut text_area = plan.inner_area;
         let mut inner = Paragraph::new(text)
             .style(style)
             .alignment(self.alignment());
         if let Some(b) = self.block() {
-            text_area = b.inner(area);
+            text_area = plan.inner_area;
             b.render(area, buf)
         }
-        if top_col != 0 {
-            inner = inner.scroll((0, top_col));
+        if plan.top_col != 0 {
+            inner = inner.scroll((0, plan.top_col));
         }
 
         // Store scroll top position for rendering on the next tick
-        self.viewport.store(top_row, top_col, width, height);
+        self.viewport
+            .store(plan.top_row, plan.top_col, width, height);
+        self.rendered_cursor_position
+            .set(plan.rendered_cursor_position);
 
         inner.render(text_area, buf);
     }

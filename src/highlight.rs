@@ -41,6 +41,18 @@ impl Boundary {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum CursorCellRender {
+    Draw(Style),
+    Hidden,
+}
+
+impl From<Style> for CursorCellRender {
+    fn from(style: Style) -> Self {
+        Self::Draw(style)
+    }
+}
+
 struct DisplayTextBuilder {
     tab_len: u8,
     width: usize,
@@ -98,7 +110,7 @@ pub struct LineHighlighter<'a> {
     boundaries: Vec<(Boundary, usize)>,
     style_begin: Style,
     cursor_at_end: bool,
-    cursor_style: Style,
+    cursor_cell: CursorCellRender,
     tab_len: u8,
     mask: Option<char>,
     select_at_end: bool,
@@ -108,7 +120,7 @@ pub struct LineHighlighter<'a> {
 impl<'a> LineHighlighter<'a> {
     pub fn new(
         line: &'a str,
-        cursor_style: Style,
+        cursor_cell: impl Into<CursorCellRender>,
         tab_len: u8,
         mask: Option<char>,
         select_style: Style,
@@ -119,7 +131,7 @@ impl<'a> LineHighlighter<'a> {
             boundaries: vec![],
             style_begin: Style::default(),
             cursor_at_end: false,
-            cursor_style,
+            cursor_cell: cursor_cell.into(),
             tab_len,
             mask,
             select_at_end: false,
@@ -138,12 +150,14 @@ impl<'a> LineHighlighter<'a> {
     }
 
     pub fn cursor_line(&mut self, cursor_col: usize, style: Style) {
-        if let Some((start, c)) = self.line.char_indices().nth(cursor_col) {
-            self.boundaries
-                .push((Boundary::Cursor(self.cursor_style), start));
-            self.boundaries.push((Boundary::End, start + c.len_utf8()));
-        } else {
-            self.cursor_at_end = true;
+        if let CursorCellRender::Draw(cursor_style) = self.cursor_cell {
+            if let Some((start, c)) = self.line.char_indices().nth(cursor_col) {
+                self.boundaries
+                    .push((Boundary::Cursor(cursor_style), start));
+                self.boundaries.push((Boundary::End, start + c.len_utf8()));
+            } else {
+                self.cursor_at_end = true;
+            }
         }
         self.style_begin = style;
     }
@@ -247,7 +261,7 @@ impl<'a> LineHighlighter<'a> {
             mut boundaries,
             tab_len,
             style_begin,
-            cursor_style,
+            cursor_cell,
             cursor_at_end,
             mask,
             select_at_end,
@@ -260,7 +274,7 @@ impl<'a> LineHighlighter<'a> {
             if !built.is_empty() {
                 spans.push(Span::styled(built, style_begin));
             }
-            if cursor_at_end {
+            if let (true, CursorCellRender::Draw(cursor_style)) = (cursor_at_end, cursor_cell) {
                 spans.push(Span::styled(" ", cursor_style));
             } else if select_at_end {
                 spans.push(Span::styled(" ", select_style));
@@ -295,7 +309,7 @@ impl<'a> LineHighlighter<'a> {
             spans.push(Span::styled(builder.build(&line[start..]), style));
         }
 
-        if cursor_at_end {
+        if let (true, CursorCellRender::Draw(cursor_style)) = (cursor_at_end, cursor_cell) {
             spans.push(Span::styled(" ", cursor_style));
         } else if select_at_end {
             spans.push(Span::styled(" ", select_style));

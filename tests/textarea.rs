@@ -1,9 +1,11 @@
-use ratatui::layout::Alignment;
+use ratatui::buffer::Buffer;
+use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
+use ratatui::widgets::Widget as _;
 use ratatui::widgets::{Block, Borders};
 use std::cmp;
 use std::fmt::Debug;
-use tui_textarea::{CursorMove, TextArea};
+use tui_textarea::{CursorMove, CursorRenderMode, TextArea, WrapMode};
 
 fn assert_undo_redo<T: Debug>(
     before_pos: (usize, usize),
@@ -32,6 +34,12 @@ fn assert_no_undo_redo<T: Debug>(t: &mut TextArea<'_>, context: T) {
     assert!(!t.redo(), "redo modification: {context:?}");
     assert_eq!(t.lines(), &buf, "buf after redo: {context:?}");
     assert_eq!(t.cursor(), pos, "pos after redo: {context:?}");
+}
+
+fn render_textarea(textarea: &TextArea<'_>, area: Rect) -> Buffer {
+    let mut buf = Buffer::empty(area);
+    textarea.render(area, &mut buf);
+    buf
 }
 
 #[test]
@@ -1621,6 +1629,7 @@ fn test_set_lines_preserves_non_content_configuration() {
     t.set_block(Block::default().borders(Borders::ALL).title("Input"));
     t.set_style(base_style);
     t.set_cursor_style(cursor_style);
+    t.set_cursor_render_mode(CursorRenderMode::Hidden);
     t.set_cursor_line_style(cursor_line_style);
     t.set_selection_style(selection_style);
     t.set_tab_length(8);
@@ -1642,6 +1651,7 @@ fn test_set_lines_preserves_non_content_configuration() {
     assert!(t.block().is_some());
     assert_eq!(t.style(), base_style);
     assert_eq!(t.cursor_style(), cursor_style);
+    assert_eq!(t.cursor_render_mode(), CursorRenderMode::Hidden);
     assert_eq!(t.cursor_line_style(), cursor_line_style);
     assert_eq!(t.selection_style(), selection_style);
     assert_eq!(t.tab_length(), 8);
@@ -1654,6 +1664,195 @@ fn test_set_lines_preserves_non_content_configuration() {
     assert_eq!(t.min_rows(), 2);
     assert_eq!(t.max_rows(), 6);
     assert_eq!(t.max_histories(), 3);
+}
+
+#[test]
+fn cursor_render_mode_defaults_to_cell() {
+    assert_eq!(
+        TextArea::default().cursor_render_mode(),
+        CursorRenderMode::Cell
+    );
+}
+
+#[test]
+fn set_cursor_render_mode_round_trips() {
+    let mut textarea = TextArea::default();
+    textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+    assert_eq!(textarea.cursor_render_mode(), CursorRenderMode::Hidden);
+
+    textarea.set_cursor_render_mode(CursorRenderMode::Cell);
+    assert_eq!(textarea.cursor_render_mode(), CursorRenderMode::Cell);
+}
+
+#[test]
+fn cell_mode_keeps_existing_cursor_rendering() {
+    let mut textarea = TextArea::from(["abc"]);
+    let cursor_style = Style::default().bg(Color::Red);
+    textarea.set_cursor_style(cursor_style);
+    textarea.set_cursor_line_style(Style::default());
+    textarea.move_cursor(CursorMove::Jump(0, 1));
+
+    let buf = render_textarea(&textarea, Rect::new(0, 0, 5, 1));
+
+    assert_eq!(buf[(1, 0)].symbol(), "b");
+    assert_eq!(buf[(1, 0)].style().bg, cursor_style.bg);
+}
+
+#[test]
+fn hidden_mode_does_not_draw_cursor_cell_inside_text() {
+    let mut textarea = TextArea::from(["abc"]);
+    textarea.set_cursor_style(Style::default().bg(Color::Red));
+    textarea.set_cursor_line_style(Style::default());
+    textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+    textarea.move_cursor(CursorMove::Jump(0, 1));
+
+    let buf = render_textarea(&textarea, Rect::new(0, 0, 5, 1));
+
+    assert_eq!(buf[(1, 0)].symbol(), "b");
+    assert_ne!(buf[(1, 0)].style().bg, Some(Color::Red));
+}
+
+#[test]
+fn hidden_mode_does_not_append_cursor_space_at_line_end() {
+    let mut textarea = TextArea::from(["abc"]);
+    let cursor_style = Style::default().bg(Color::Red);
+    textarea.set_cursor_style(cursor_style);
+    textarea.set_cursor_line_style(Style::default());
+    textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+    textarea.move_cursor(CursorMove::End);
+
+    let buf = render_textarea(&textarea, Rect::new(0, 0, 5, 1));
+
+    assert_eq!(buf[(0, 0)].symbol(), "a");
+    assert_eq!(buf[(1, 0)].symbol(), "b");
+    assert_eq!(buf[(2, 0)].symbol(), "c");
+    assert_eq!(buf[(3, 0)].symbol(), " ");
+    assert_ne!(buf[(3, 0)].style().bg, cursor_style.bg);
+}
+
+#[test]
+fn hidden_mode_placeholder_does_not_draw_cursor_cell() {
+    let mut textarea = TextArea::default();
+    textarea.set_placeholder_text("Type here");
+    textarea.set_cursor_style(Style::default().bg(Color::Red));
+    textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+
+    let buf = render_textarea(&textarea, Rect::new(0, 0, 12, 1));
+
+    assert_eq!(buf[(0, 0)].symbol(), "T");
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position { x: 0, y: 0 })
+    );
+}
+
+#[test]
+fn rendered_cursor_position_returns_none_before_first_render() {
+    let textarea = TextArea::default();
+    assert_eq!(textarea.rendered_cursor_position(), None);
+}
+
+#[test]
+fn rendered_cursor_position_after_default_render() {
+    let mut textarea = TextArea::from(["abc"]);
+    textarea.move_cursor(CursorMove::Jump(0, 2));
+
+    render_textarea(&textarea, Rect::new(10, 5, 20, 3));
+
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position { x: 12, y: 5 })
+    );
+}
+
+#[test]
+fn rendered_cursor_position_accounts_for_block() {
+    let mut textarea = TextArea::from(["abc"]);
+    textarea.set_block(Block::default().borders(Borders::ALL));
+    textarea.move_cursor(CursorMove::Jump(0, 2));
+
+    render_textarea(&textarea, Rect::new(10, 5, 20, 5));
+
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position { x: 13, y: 6 })
+    );
+}
+
+#[test]
+fn rendered_cursor_position_accounts_for_line_numbers() {
+    let mut textarea = TextArea::from(["abc"]);
+    textarea.set_line_number_style(Style::default());
+    textarea.move_cursor(CursorMove::Jump(0, 1));
+
+    render_textarea(&textarea, Rect::new(10, 5, 20, 3));
+
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position { x: 14, y: 5 })
+    );
+}
+
+#[test]
+fn rendered_cursor_position_accounts_for_horizontal_scroll() {
+    let mut textarea = TextArea::from(["abcdefghi"]);
+    textarea.move_cursor(CursorMove::End);
+
+    render_textarea(&textarea, Rect::new(0, 0, 5, 1));
+
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position { x: 4, y: 0 })
+    );
+}
+
+#[test]
+fn rendered_cursor_position_accounts_for_wrap() {
+    let mut textarea = TextArea::from(["abcdefghij"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    textarea.move_cursor(CursorMove::Jump(0, 7));
+
+    render_textarea(&textarea, Rect::new(4, 3, 5, 3));
+
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position { x: 6, y: 4 })
+    );
+}
+
+#[test]
+fn rendered_cursor_position_returns_none_for_empty_area() {
+    let textarea = TextArea::default();
+
+    render_textarea(&textarea, Rect::new(0, 0, 0, 1));
+
+    assert_eq!(textarea.rendered_cursor_position(), None);
+}
+
+#[test]
+fn rendered_cursor_position_handles_wide_unicode() {
+    let mut textarea = TextArea::from(["aあb"]);
+    textarea.move_cursor(CursorMove::Jump(0, 2));
+
+    render_textarea(&textarea, Rect::new(0, 0, 10, 1));
+
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position { x: 3, y: 0 })
+    );
+}
+
+#[test]
+fn rendered_cursor_position_handles_tabs() {
+    let mut textarea = TextArea::from(["a\tb"]);
+    textarea.move_cursor(CursorMove::Jump(0, 2));
+
+    render_textarea(&textarea, Rect::new(0, 0, 10, 1));
+
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position { x: 4, y: 0 })
+    );
 }
 
 #[test]

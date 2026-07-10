@@ -20,6 +20,7 @@ Since this fork was created, it has added or integrated:
 - Row measurement via `TextAreaMeasure`, `TextArea::measure()`, `set_min_rows()`, and `set_max_rows()`
 - Bulk whole-buffer replacement via `TextArea::set_lines()`
 - Opt-in atomic ranges for caller-owned placeholders, mentions, or other indivisible spans
+- Opt-in native terminal cursor integration via `CursorRenderMode::Hidden` and `rendered_cursor_position()`
 
 **Features:**
 
@@ -36,6 +37,7 @@ Since this fork was created, it has added or integrated:
 - Custom highlighted ranges
 - Opt-in atomic ranges for indivisible editing spans
 - Placeholder and masking support
+- Optional native terminal cursor placement while keeping backend-specific cursor shape control outside the widget
 - Mouse scrolling
 - Yank support. Paste text deleted with `C-k`, `C-j`, ...
 - Backend agnostic. [crossterm][], [termion][], [termwiz][], and your own backend are all supported
@@ -387,6 +389,26 @@ use ratatui::style::{Style, Modifier};
 textarea.set_cursor_line_style(Style::default());
 ```
 
+### Use a native terminal cursor
+
+By default, `TextArea` draws its cursor as a styled cell in the Ratatui buffer. This keeps existing rendering behavior
+unchanged. Applications that want a native terminal cursor, such as a blinking bar, can hide the drawn cursor and place
+the terminal cursor after rendering.
+
+```rust,ignore
+use tui_textarea::{CursorRenderMode, TextArea};
+
+textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+frame.render_widget(&textarea, area);
+
+if let Some(position) = textarea.rendered_cursor_position() {
+    frame.set_cursor_position(position);
+}
+```
+
+`tui-textarea-2` does not set backend-specific cursor shapes. Configure those in the application, for example with
+`crossterm::cursor::SetCursorStyle::BlinkingBar` during terminal setup and reset the shape during teardown.
+
 ### Configure tab width
 
 The default tab width is 4. To change it, use `TextArea::set_tab_length()` method. The following sets 2 to tab width.
@@ -648,6 +670,9 @@ Useful state/configuration helpers:
 | `textarea.remove_block()`                | Remove block chrome                                         |
 | `textarea.set_line_number_style(style)`  | Enable or restyle line numbers                              |
 | `textarea.remove_line_number()`          | Disable line numbers                                        |
+| `textarea.set_cursor_render_mode(mode)`  | Draw or hide the textarea-owned cursor cell                 |
+| `textarea.cursor_render_mode()`          | Read the current cursor render mode                         |
+| `textarea.rendered_cursor_position()`    | Get the last rendered terminal cursor position              |
 | `textarea.set_placeholder_text(text)`    | Set or disable placeholder text                             |
 | `textarea.set_placeholder_style(style)`  | Change placeholder style                                    |
 | `textarea.set_mask_char(ch)`             | Enable character masking                                    |
