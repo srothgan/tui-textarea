@@ -63,8 +63,8 @@ jobs:
       - name: Verify package
         if: steps.tag.outputs.exists == 'false'
         run: |
-          cargo package
-          cargo test
+          cargo package --locked
+          cargo test --locked
 
       - name: Authenticate with crates.io
         if: steps.tag.outputs.exists == 'false'

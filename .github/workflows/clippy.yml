@@ -19,4 +19,4 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2.9.1
-      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --locked --all-targets -- -D warnings

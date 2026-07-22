@@ -3,23 +3,44 @@ updates:
   - package-ecosystem: cargo
     directories:
       - "/"
-      - "/bench"
       - "/fuzz"
     schedule:
       interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
     labels:
       - dependencies
       - cargo
     open-pull-requests-limit: 10
     groups:
-      patch-and-minor:
+      cargo-non-major:
+        applies-to: version-updates
+        patterns:
+          - "*"
         update-types:
           - patch
           - minor
+
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Europe/Berlin
     labels:
       - dependencies
       - github-actions
+    open-pull-requests-limit: 10
+    groups:
+      github-actions-non-major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - patch
+          - minor
+    ignore:
+      # These refs select the Rust/MSRV version rather than an action release.
+      - dependency-name: dtolnay/rust-toolchain
