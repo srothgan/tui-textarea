@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+- **Undo coalescing**: Consecutive `insert_char`/`delete_char` calls now collapse into a single undo step, so undo removes a word of typing rather than one character. Runs are broken by whitespace, newlines, cursor movement, pastes, range deletions and switching between inserting and deleting. Opt out with `TextArea::set_undo_coalescing(false)` to restore per-character undo.
+
 ## [0.12.1] - 2026-07-10 [Changes][v0.12.1]
 
 ### Features

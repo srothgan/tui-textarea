@@ -1,4 +1,4 @@
-use tui_textarea::TextArea;
+use tui_textarea::{CursorMove, TextArea};
 
 // Regression test for #4
 #[test]
@@ -6,5 +6,320 @@ fn disable_history() {
     let mut t = TextArea::default();
     t.set_max_histories(0);
     assert!(t.insert_str("hello"));
+    assert_eq!(t.lines(), ["hello"]);
+}
+
+fn type_chars(t: &mut TextArea<'_>, s: &str) {
+    for c in s.chars() {
+        t.insert_char(c);
+    }
+}
+
+#[test]
+fn coalescing_is_enabled_by_default() {
+    assert!(TextArea::default().undo_coalescing());
+}
+
+#[test]
+fn typed_run_undoes_and_redoes_as_one_step() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "hello");
+    assert_eq!(t.cursor(), (0, 5));
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+    assert_eq!(t.cursor(), (0, 0));
+    assert!(!t.undo());
+
+    assert!(t.redo());
+    assert_eq!(t.lines(), ["hello"]);
+    assert_eq!(t.cursor(), (0, 5));
+    assert!(!t.redo());
+}
+
+#[test]
+fn typed_run_coalesces_multi_byte_chars() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "🐶🐱🐰");
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+    assert!(t.redo());
+    assert_eq!(t.lines(), ["🐶🐱🐰"]);
+}
+
+#[test]
+fn whitespace_breaks_run_into_words() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "the quick brown fox");
+
+    // Trailing spaces are intentional: each space belongs to the word it ends
+    for expected in ["the quick brown ", "the quick ", "the ", ""] {
+        assert!(t.undo());
+        assert_eq!(t.lines(), [expected]);
+    }
+    assert!(!t.undo());
+
+    for expected in [
+        "the ",
+        "the quick ",
+        "the quick brown ",
+        "the quick brown fox",
+    ] {
+        assert!(t.redo());
+        assert_eq!(t.lines(), [expected]);
+    }
+}
+
+#[test]
+fn backspace_run_breaks_at_words() {
+    let mut t = TextArea::from(["hello big world"]);
+    t.move_cursor(CursorMove::End);
+    while t.delete_char() {}
+    assert_eq!(t.lines(), [""]);
+
+    for expected in ["hello", "hello big", "hello big world"] {
+        assert!(t.undo());
+        assert_eq!(t.lines(), [expected]);
+    }
+    assert!(!t.undo());
+}
+
+#[test]
+fn tab_is_its_own_step() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "ab");
+    assert!(t.insert_tab());
+    type_chars(&mut t, "cd");
+
+    // Two spaces, not four: the tab aligns to the next tab stop from column 2
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab  "]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
+#[test]
+fn newline_breaks_run() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "ab");
+    t.insert_newline();
+    type_chars(&mut t, "cd");
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab", ""]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
+#[test]
+fn cursor_move_breaks_run() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "ab");
+    // Move away and back so the next insertion is still adjacent to the previous one
+    t.move_cursor(CursorMove::Back);
+    t.move_cursor(CursorMove::Forward);
+    type_chars(&mut t, "cd");
+    assert_eq!(t.lines(), ["abcd"]);
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
+#[test]
+fn paste_is_its_own_step() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "ab");
+    assert!(t.insert_str("XY"));
+    type_chars(&mut t, "cd");
+    assert_eq!(t.lines(), ["abXYcd"]);
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["abXY"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
+#[test]
+fn backspace_run_undoes_as_one_step() {
+    let mut t = TextArea::from(["hello"]);
+    t.move_cursor(CursorMove::End);
+    for _ in 0..3 {
+        assert!(t.delete_char());
+    }
+    assert_eq!(t.lines(), ["he"]);
+    assert_eq!(t.cursor(), (0, 2));
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["hello"]);
+    assert_eq!(t.cursor(), (0, 5));
+
+    assert!(t.redo());
+    assert_eq!(t.lines(), ["he"]);
+    assert_eq!(t.cursor(), (0, 2));
+}
+
+#[test]
+fn backspace_run_coalesces_multi_byte_chars() {
+    let mut t = TextArea::from(["🐶🐱🐰"]);
+    t.move_cursor(CursorMove::End);
+    for _ in 0..3 {
+        assert!(t.delete_char());
+    }
+    assert_eq!(t.lines(), [""]);
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["🐶🐱🐰"]);
+}
+
+#[test]
+fn insertions_and_deletions_do_not_merge() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "ab");
+    assert!(t.delete_char());
+    assert_eq!(t.lines(), ["a"]);
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
+#[test]
+fn backspace_over_a_newline_breaks_run() {
+    let mut t = TextArea::from(["ab", "cd"]);
+    t.move_cursor(CursorMove::End);
+    t.move_cursor(CursorMove::Down);
+    t.move_cursor(CursorMove::End);
+    for _ in 0..3 {
+        assert!(t.delete_char());
+    }
+    assert_eq!(t.lines(), ["ab"]);
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab", ""]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab", "cd"]);
+}
+
+#[test]
+fn typing_after_an_undo_starts_a_new_run() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "ab");
+    type_chars(&mut t, "cd");
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+
+    type_chars(&mut t, "xy");
+    assert_eq!(t.lines(), ["xy"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+    assert!(!t.undo());
+}
+
+#[test]
+fn disabling_coalescing_restores_per_character_undo() {
+    let mut t = TextArea::default();
+    t.set_undo_coalescing(false);
+    assert!(!t.undo_coalescing());
+    type_chars(&mut t, "hello");
+
+    for expected in ["hell", "hel", "he", "h", ""] {
+        assert!(t.undo());
+        assert_eq!(t.lines(), [expected]);
+    }
+    assert!(!t.undo());
+}
+
+#[test]
+fn disabling_coalescing_mid_run_breaks_it() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "ab");
+    t.set_undo_coalescing(false);
+    type_chars(&mut t, "cd");
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["abc"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
+fn assert_round_trip(t: &mut TextArea<'_>) {
+    let lines: Vec<String> = t.lines().to_vec();
+    let cursor = t.cursor();
+
+    let mut undos = 0;
+    while t.undo() {
+        undos += 1;
+    }
+    let mut redos = 0;
+    while t.redo() {
+        redos += 1;
+    }
+
+    assert_eq!(undos, redos, "undo and redo disagree on step count");
+    assert_eq!(t.lines(), lines.as_slice());
+    assert_eq!(t.cursor(), cursor);
+}
+
+#[test]
+fn undo_redo_round_trips_over_mixed_edits() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "the quick brown fox");
+    assert_round_trip(&mut t);
+
+    let mut t = TextArea::default();
+    type_chars(&mut t, "🐶🐱 🐰🐮 ab");
+    assert_round_trip(&mut t);
+
+    let mut t = TextArea::default();
+    type_chars(&mut t, "hello wrld");
+    for _ in 0..4 {
+        assert!(t.delete_char());
+    }
+    type_chars(&mut t, "world");
+    t.insert_newline();
+    assert!(t.insert_str("pasted"));
+    type_chars(&mut t, " tail");
+    assert!(t.delete_word());
+    assert_round_trip(&mut t);
+
+    let mut t = TextArea::from(["alpha beta gamma"]);
+    t.move_cursor(CursorMove::End);
+    while t.delete_char() {}
+    assert_round_trip(&mut t);
+}
+
+#[test]
+fn redo_is_discarded_after_a_new_edit() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "one two");
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["one "]);
+
+    t.insert_char('X');
+    assert!(!t.redo(), "redo must not resurrect the truncated branch");
+    assert_eq!(t.lines(), ["one X"]);
+}
+
+#[test]
+fn coalescing_does_not_consume_history_slots() {
+    let mut t = TextArea::default();
+    t.set_max_histories(1);
+    type_chars(&mut t, "hello");
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+    assert!(t.redo());
     assert_eq!(t.lines(), ["hello"]);
 }

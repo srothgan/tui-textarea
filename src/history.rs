@@ -74,6 +74,14 @@ impl EditKind {
         }
     }
 
+    // Whitespace is merged into the run it ends and then closes it, so undo walks back a word at a time
+    fn keeps_run_open(&self) -> bool {
+        match self {
+            EditKind::InsertChar(c) | EditKind::DeleteChar(c) => !c.is_whitespace(),
+            _ => false,
+        }
+    }
+
     fn invert(&self) -> Self {
         use EditKind::*;
         match self.clone() {
@@ -120,6 +128,37 @@ impl Edit {
     pub fn cursor_after(&self) -> (usize, usize) {
         (self.after.row, self.after.col)
     }
+
+    // Merge `other` into this edit when it starts exactly where this one ended
+    fn try_merge(&mut self, other: &Edit) -> bool {
+        if self.after != other.before {
+            return false;
+        }
+
+        // Promote the run's first character so it can grow in place
+        let promoted = match (&self.kind, &other.kind) {
+            (EditKind::InsertChar(c), EditKind::InsertChar(_)) => {
+                Some(EditKind::InsertStr(c.to_string()))
+            }
+            (EditKind::DeleteChar(c), EditKind::DeleteChar(_)) => {
+                Some(EditKind::DeleteStr(c.to_string()))
+            }
+            _ => None,
+        };
+        if let Some(kind) = promoted {
+            self.kind = kind;
+        }
+
+        match (&mut self.kind, &other.kind) {
+            (EditKind::InsertStr(s), EditKind::InsertChar(c)) => s.push(*c),
+            // Backspace walks the buffer backwards, so the run grows from the front
+            (EditKind::DeleteStr(s), EditKind::DeleteChar(c)) => s.insert(0, *c),
+            _ => return false,
+        }
+
+        self.after = other.after.clone();
+        true
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -127,6 +166,7 @@ pub struct History {
     index: usize,
     max_items: usize,
     edits: VecDeque<Edit>,
+    run_open: bool,
 }
 
 impl History {
@@ -135,11 +175,22 @@ impl History {
             index: 0,
             max_items,
             edits: VecDeque::new(),
+            run_open: false,
         }
     }
 
-    pub fn push(&mut self, edit: Edit) {
+    pub fn push(&mut self, edit: Edit, coalesce: bool) {
         if self.max_items == 0 {
+            return;
+        }
+
+        if coalesce
+            && self.run_open
+            && self.index == self.edits.len()
+            && let Some(last) = self.edits.back_mut()
+            && last.try_merge(&edit)
+        {
+            self.run_open = edit.kind.keeps_run_open();
             return;
         }
 
@@ -153,13 +204,19 @@ impl History {
         }
 
         self.index += 1;
+        self.run_open = edit.kind.keeps_run_open();
         self.edits.push_back(edit);
+    }
+
+    pub fn break_run(&mut self) {
+        self.run_open = false;
     }
 
     pub fn redo(&mut self, lines: &mut Vec<String>) -> Option<(usize, usize)> {
         if self.index == self.edits.len() {
             return None;
         }
+        self.run_open = false;
         let edit = &self.edits[self.index];
         edit.redo(lines);
         self.index += 1;
@@ -168,6 +225,7 @@ impl History {
 
     pub fn undo(&mut self, lines: &mut Vec<String>) -> Option<(usize, usize)> {
         self.index = self.index.checked_sub(1)?;
+        self.run_open = false;
         let edit = &self.edits[self.index];
         edit.undo(lines);
         Some(edit.cursor_before())
