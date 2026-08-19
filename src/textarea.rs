@@ -2347,10 +2347,10 @@ impl<'a> TextArea<'a> {
     /// enabled by default, so undo removes a word of typing rather than one character at a time.
     /// Disable it to get one undo step per character.
     ///
-    /// A run is broken by anything that is not a continuation of the same typing: whitespace, a
-    /// newline, a cursor move, a paste, a range deletion, or switching between inserting and
-    /// deleting. Whitespace is absorbed into the run it ends, so undo never leaves a dangling
-    /// separator behind.
+    /// A run covers characters of one class (word, punctuation or whitespace), so undo stops on the
+    /// same boundaries as [`TextArea::delete_word`] and [`CursorMove::WordForward`]. Trailing
+    /// whitespace joins the run it ends rather than starting a new one. A newline, cursor move,
+    /// paste, range deletion or switch between inserting and deleting also ends a run.
     /// ```
     /// use tui_textarea::TextArea;
     ///
@@ -2362,6 +2362,14 @@ impl<'a> TextArea<'a> {
     /// assert_eq!(textarea.lines(), ["hello "]);
     /// textarea.undo();
     /// assert_eq!(textarea.lines(), [""]);
+    ///
+    /// // Punctuation is a separate class, so code undoes in meaningful pieces
+    /// let mut textarea = TextArea::default();
+    /// for c in "foo();".chars() {
+    ///     textarea.insert_char(c);
+    /// }
+    /// textarea.undo();
+    /// assert_eq!(textarea.lines(), ["foo"]);
     /// ```
     pub fn set_undo_coalescing(&mut self, coalesce: bool) {
         self.undo_coalescing = coalesce;

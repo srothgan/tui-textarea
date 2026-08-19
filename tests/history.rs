@@ -49,6 +49,87 @@ fn typed_run_coalesces_multi_byte_chars() {
 }
 
 #[test]
+fn punctuation_breaks_run() {
+    let mut t = TextArea::default();
+    type_chars(&mut t, "foo();bar()");
+
+    for expected in ["foo();bar", "foo();", "foo", ""] {
+        assert!(t.undo());
+        assert_eq!(t.lines(), [expected]);
+    }
+    assert!(!t.undo());
+}
+
+#[test]
+fn underscores_and_digits_stay_in_one_run() {
+    // CharKind treats `_` as a word character, so identifiers undo as a unit
+    let mut t = TextArea::default();
+    type_chars(&mut t, "my_var2");
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
+#[test]
+fn backspace_run_breaks_at_punctuation() {
+    let mut t = TextArea::from(["foo();bar"]);
+    t.move_cursor(CursorMove::End);
+    while t.delete_char() {}
+
+    for expected in ["foo", "foo();", "foo();bar"] {
+        assert!(t.undo());
+        assert_eq!(t.lines(), [expected]);
+    }
+    assert!(!t.undo());
+}
+
+/// Undo boundaries must line up with the word boundaries the crate already uses, so that undoing
+/// typed text and deleting it with `delete_word` walk back in the same pieces.
+#[test]
+fn undo_boundaries_match_delete_word() {
+    fn undo_chunks(s: &str) -> Vec<String> {
+        let mut t = TextArea::default();
+        type_chars(&mut t, s);
+        collect(&mut t, |t| t.undo())
+    }
+
+    fn delete_word_chunks(s: &str) -> Vec<String> {
+        let mut t = TextArea::from([s]);
+        t.move_cursor(CursorMove::End);
+        collect(&mut t, |t| t.delete_word())
+    }
+
+    fn collect(
+        t: &mut TextArea<'_>,
+        mut shrink: impl FnMut(&mut TextArea<'_>) -> bool,
+    ) -> Vec<String> {
+        let mut chunks = vec![];
+        loop {
+            let before = t.lines()[0].to_string();
+            if !shrink(t) {
+                break;
+            }
+            chunks.push(before[t.lines()[0].len()..].to_string());
+        }
+        chunks.reverse();
+        chunks
+    }
+
+    for s in [
+        "foo();bar()",
+        "#[derive(Clone)]",
+        "my_var2 = 3",
+        "hello big world",
+    ] {
+        assert_eq!(
+            undo_chunks(s),
+            delete_word_chunks(s),
+            "boundaries differ for {s:?}"
+        );
+    }
+}
+
+#[test]
 fn whitespace_breaks_run_into_words() {
     let mut t = TextArea::default();
     type_chars(&mut t, "the quick brown fox");

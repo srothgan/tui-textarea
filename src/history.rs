@@ -1,4 +1,5 @@
 use crate::util::Pos;
+use crate::word::CharKind;
 use std::collections::VecDeque;
 
 #[derive(Clone, Debug)]
@@ -82,6 +83,22 @@ impl EditKind {
         }
     }
 
+    // A run covers one CharKind, so undo stops on the same boundaries as delete_word and
+    // CursorMove::WordForward. Whitespace joins the run it ends instead of starting a new one.
+    fn continues_run(&self, next: char) -> bool {
+        if next.is_whitespace() {
+            return true;
+        }
+        // The character the run last grew by: the end when inserting, the front when backspacing
+        let edge = match self {
+            EditKind::InsertChar(c) | EditKind::DeleteChar(c) => Some(*c),
+            EditKind::InsertStr(s) => s.chars().next_back(),
+            EditKind::DeleteStr(s) => s.chars().next(),
+            _ => None,
+        };
+        edge.is_some_and(|prev| CharKind::new(prev) == CharKind::new(next))
+    }
+
     fn invert(&self) -> Self {
         use EditKind::*;
         match self.clone() {
@@ -129,9 +146,18 @@ impl Edit {
         (self.after.row, self.after.col)
     }
 
-    // Merge `other` into this edit when it starts exactly where this one ended
-    fn try_merge(&mut self, other: &Edit) -> bool {
+    // Grow this run by `other` when it starts exactly where this one ended
+    fn merge(&mut self, other: &Edit) -> bool {
         if self.after != other.before {
+            return false;
+        }
+
+        let next = match other.kind {
+            EditKind::InsertChar(c) | EditKind::DeleteChar(c) => c,
+            _ => return false,
+        };
+
+        if !self.kind.continues_run(next) {
             return false;
         }
 
@@ -187,10 +213,7 @@ impl History {
 
         if coalesce
             && self.can_extend_run()
-            && self
-                .edits
-                .back_mut()
-                .is_some_and(|last| last.try_merge(&edit))
+            && self.edits.back_mut().is_some_and(|last| last.merge(&edit))
         {
             self.run_open = edit.kind.keeps_run_open();
             return;

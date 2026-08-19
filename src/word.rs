@@ -1,12 +1,12 @@
 #[derive(PartialEq, Eq, Clone, Copy)]
-enum CharKind {
+pub enum CharKind {
     Space,
     Punct,
     Other,
 }
 
 impl CharKind {
-    fn new(c: char) -> Self {
+    pub fn new(c: char) -> Self {
         if c.is_whitespace() {
             Self::Space
         } else if c == '_' {
