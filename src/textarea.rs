@@ -2362,14 +2362,6 @@ impl<'a> TextArea<'a> {
     /// assert_eq!(textarea.lines(), ["hello "]);
     /// textarea.undo();
     /// assert_eq!(textarea.lines(), [""]);
-    ///
-    /// let mut textarea = TextArea::default();
-    /// textarea.set_undo_coalescing(false);
-    /// for c in "hello".chars() {
-    ///     textarea.insert_char(c);
-    /// }
-    /// textarea.undo();
-    /// assert_eq!(textarea.lines(), ["hell"]);
     /// ```
     pub fn set_undo_coalescing(&mut self, coalesce: bool) {
         self.undo_coalescing = coalesce;

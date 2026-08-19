@@ -254,6 +254,23 @@ fn disabling_coalescing_mid_run_breaks_it() {
     assert_eq!(t.lines(), [""]);
 }
 
+#[test]
+fn enabling_coalescing_mid_run_breaks_it() {
+    let mut t = TextArea::default();
+    t.set_undo_coalescing(false);
+    type_chars(&mut t, "ab");
+    t.set_undo_coalescing(true);
+    type_chars(&mut t, "cd");
+
+    // "cd" must be its own run, not an extension of the "b" typed while disabled
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["ab"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["a"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
 fn assert_round_trip(t: &mut TextArea<'_>) {
     let lines: Vec<String> = t.lines().to_vec();
     let cursor = t.cursor();

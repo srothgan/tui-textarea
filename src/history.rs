@@ -145,6 +145,7 @@ impl Edit {
             }
             _ => None,
         };
+
         if let Some(kind) = promoted {
             self.kind = kind;
         }
@@ -185,10 +186,11 @@ impl History {
         }
 
         if coalesce
-            && self.run_open
-            && self.index == self.edits.len()
-            && let Some(last) = self.edits.back_mut()
-            && last.try_merge(&edit)
+            && self.can_extend_run()
+            && self
+                .edits
+                .back_mut()
+                .is_some_and(|last| last.try_merge(&edit))
         {
             self.run_open = edit.kind.keeps_run_open();
             return;
@@ -206,6 +208,11 @@ impl History {
         self.index += 1;
         self.run_open = edit.kind.keeps_run_open();
         self.edits.push_back(edit);
+    }
+
+    // The newest edit is an open run and nothing has been undone since
+    fn can_extend_run(&self) -> bool {
+        self.run_open && self.index == self.edits.len()
     }
 
     pub fn break_run(&mut self) {
