@@ -21,6 +21,7 @@ Since this fork was created, it has added or integrated:
 - Bulk whole-buffer replacement via `TextArea::set_lines()`
 - Opt-in atomic ranges for caller-owned placeholders, mentions, or other indivisible spans
 - Opt-in native terminal cursor integration via `CursorRenderMode::Hidden` and `rendered_cursor_position()`
+- Opt-in undo coalescing via `set_undo_coalescing()`, grouping typed characters into word-sized undo steps
 
 **Features:**
 
@@ -36,6 +37,7 @@ Since this fork was created, it has added or integrated:
 - Text selection
 - Custom highlighted ranges
 - Opt-in atomic ranges for indivisible editing spans
+- Opt-in undo coalescing that groups typing into word-sized undo steps
 - Placeholder and masking support
 - Optional native terminal cursor placement while keeping backend-specific cursor shape control outside the widget
 - Mouse scrolling
@@ -518,6 +520,21 @@ Setting 0 disables undo/redo.
 textarea.set_max_histories(0);
 ```
 
+### Coalesce undo steps while typing
+
+By default, each inserted or deleted character is a separate undo step. To undo a word at a time instead, enable
+coalescing with `TextArea::set_undo_coalescing()`.
+
+```rust,ignore
+textarea.set_undo_coalescing(true);
+```
+
+A run covers characters of one class, so undo stops at the same boundaries as `TextArea::delete_word()` and
+`CursorMove::WordForward`. Typing `foo();bar()` undoes as `foo`, `();`, `bar`, `()`. Trailing whitespace joins the run
+that it ends, so undo never stops on a dangling separator.
+
+A newline, a cursor move, a paste, a range deletion, or a change between insertion and deletion also ends a run.
+
 ### Text search with regular expressions
 
 To search text in textarea, set a regular expression pattern with `TextArea::set_search_pattern()` and move cursor with
@@ -607,6 +624,8 @@ notify how to move the cursor.
 | `textarea.clear()`                                   | Clear all text                                  |
 | `textarea.undo()`                                    | Undo                                            |
 | `textarea.redo()`                                    | Redo                                            |
+| `textarea.set_undo_coalescing(enabled)`              | Group typing into word-sized undo steps         |
+| `textarea.undo_coalescing()`                         | Check whether undo coalescing is enabled        |
 | `textarea.copy()`                                    | Copy selected text                              |
 | `textarea.cut()`                                     | Cut selected text                               |
 | `textarea.paste()`                                   | Paste yanked text                               |
