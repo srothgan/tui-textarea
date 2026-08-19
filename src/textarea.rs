@@ -327,7 +327,7 @@ impl<'a> TextArea<'a> {
             tab_len: 4,
             hard_tab_indent: false,
             history: History::new(50),
-            undo_coalescing: true,
+            undo_coalescing: false,
             cursor_line_style: Style::default().add_modifier(Modifier::UNDERLINED),
             line_number_style: None,
             viewport: Viewport::default(),
@@ -2344,8 +2344,8 @@ impl<'a> TextArea<'a> {
     }
 
     /// Set whether consecutive single-character edits are coalesced into one undo step. This is
-    /// enabled by default, so undo removes a word of typing rather than one character at a time.
-    /// Disable it to get one undo step per character.
+    /// disabled by default, so undo removes one character at a time. Enable it to undo a word of
+    /// typing at a time instead.
     ///
     /// A run covers characters of one class (word, punctuation or whitespace), so undo stops on the
     /// same boundaries as [`TextArea::delete_word`] and [`CursorMove::WordForward`]. Trailing
@@ -2355,6 +2355,7 @@ impl<'a> TextArea<'a> {
     /// use tui_textarea::TextArea;
     ///
     /// let mut textarea = TextArea::default();
+    /// textarea.set_undo_coalescing(true);
     /// for c in "hello world".chars() {
     ///     textarea.insert_char(c);
     /// }
@@ -2365,6 +2366,7 @@ impl<'a> TextArea<'a> {
     ///
     /// // Punctuation is a separate class, so code undoes in meaningful pieces
     /// let mut textarea = TextArea::default();
+    /// textarea.set_undo_coalescing(true);
     /// for c in "foo();".chars() {
     ///     textarea.insert_char(c);
     /// }
@@ -2377,7 +2379,7 @@ impl<'a> TextArea<'a> {
     }
 
     /// Get whether consecutive single-character edits are coalesced into one undo step. The default
-    /// value is `true`.
+    /// value is `false`.
     pub fn undo_coalescing(&self) -> bool {
         self.undo_coalescing
     }

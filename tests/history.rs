@@ -15,14 +15,34 @@ fn type_chars(t: &mut TextArea<'_>, s: &str) {
     }
 }
 
+// Coalescing is opt-in, so the tests below enable it explicitly
+fn coalescing() -> TextArea<'static> {
+    let mut t = TextArea::default();
+    t.set_undo_coalescing(true);
+    t
+}
+
+fn coalescing_from<const N: usize>(lines: [&str; N]) -> TextArea<'static> {
+    let mut t = TextArea::from(lines);
+    t.set_undo_coalescing(true);
+    t
+}
+
 #[test]
-fn coalescing_is_enabled_by_default() {
-    assert!(TextArea::default().undo_coalescing());
+fn coalescing_is_disabled_by_default() {
+    let mut t = TextArea::default();
+    assert!(!t.undo_coalescing());
+
+    type_chars(&mut t, "hello");
+    for expected in ["hell", "hel", "he", "h", ""] {
+        assert!(t.undo());
+        assert_eq!(t.lines(), [expected]);
+    }
 }
 
 #[test]
 fn typed_run_undoes_and_redoes_as_one_step() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "hello");
     assert_eq!(t.cursor(), (0, 5));
 
@@ -39,7 +59,7 @@ fn typed_run_undoes_and_redoes_as_one_step() {
 
 #[test]
 fn typed_run_coalesces_multi_byte_chars() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "🐶🐱🐰");
 
     assert!(t.undo());
@@ -50,7 +70,7 @@ fn typed_run_coalesces_multi_byte_chars() {
 
 #[test]
 fn punctuation_breaks_run() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "foo();bar()");
 
     for expected in ["foo();bar", "foo();", "foo", ""] {
@@ -63,7 +83,7 @@ fn punctuation_breaks_run() {
 #[test]
 fn underscores_and_digits_stay_in_one_run() {
     // CharKind treats `_` as a word character, so identifiers undo as a unit
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "my_var2");
 
     assert!(t.undo());
@@ -72,7 +92,7 @@ fn underscores_and_digits_stay_in_one_run() {
 
 #[test]
 fn backspace_run_breaks_at_punctuation() {
-    let mut t = TextArea::from(["foo();bar"]);
+    let mut t = coalescing_from(["foo();bar"]);
     t.move_cursor(CursorMove::End);
     while t.delete_char() {}
 
@@ -88,13 +108,13 @@ fn backspace_run_breaks_at_punctuation() {
 #[test]
 fn undo_boundaries_match_delete_word() {
     fn undo_chunks(s: &str) -> Vec<String> {
-        let mut t = TextArea::default();
+        let mut t = coalescing();
         type_chars(&mut t, s);
         collect(&mut t, |t| t.undo())
     }
 
     fn delete_word_chunks(s: &str) -> Vec<String> {
-        let mut t = TextArea::from([s]);
+        let mut t = coalescing_from([s]);
         t.move_cursor(CursorMove::End);
         collect(&mut t, |t| t.delete_word())
     }
@@ -131,7 +151,7 @@ fn undo_boundaries_match_delete_word() {
 
 #[test]
 fn whitespace_breaks_run_into_words() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "the quick brown fox");
 
     // Trailing spaces are intentional: each space belongs to the word it ends
@@ -154,7 +174,7 @@ fn whitespace_breaks_run_into_words() {
 
 #[test]
 fn backspace_run_breaks_at_words() {
-    let mut t = TextArea::from(["hello big world"]);
+    let mut t = coalescing_from(["hello big world"]);
     t.move_cursor(CursorMove::End);
     while t.delete_char() {}
     assert_eq!(t.lines(), [""]);
@@ -168,7 +188,7 @@ fn backspace_run_breaks_at_words() {
 
 #[test]
 fn tab_is_its_own_step() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "ab");
     assert!(t.insert_tab());
     type_chars(&mut t, "cd");
@@ -184,7 +204,7 @@ fn tab_is_its_own_step() {
 
 #[test]
 fn newline_breaks_run() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "ab");
     t.insert_newline();
     type_chars(&mut t, "cd");
@@ -199,7 +219,7 @@ fn newline_breaks_run() {
 
 #[test]
 fn cursor_move_breaks_run() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "ab");
     // Move away and back so the next insertion is still adjacent to the previous one
     t.move_cursor(CursorMove::Back);
@@ -215,7 +235,7 @@ fn cursor_move_breaks_run() {
 
 #[test]
 fn paste_is_its_own_step() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "ab");
     assert!(t.insert_str("XY"));
     type_chars(&mut t, "cd");
@@ -231,7 +251,7 @@ fn paste_is_its_own_step() {
 
 #[test]
 fn backspace_run_undoes_as_one_step() {
-    let mut t = TextArea::from(["hello"]);
+    let mut t = coalescing_from(["hello"]);
     t.move_cursor(CursorMove::End);
     for _ in 0..3 {
         assert!(t.delete_char());
@@ -250,7 +270,7 @@ fn backspace_run_undoes_as_one_step() {
 
 #[test]
 fn backspace_run_coalesces_multi_byte_chars() {
-    let mut t = TextArea::from(["🐶🐱🐰"]);
+    let mut t = coalescing_from(["🐶🐱🐰"]);
     t.move_cursor(CursorMove::End);
     for _ in 0..3 {
         assert!(t.delete_char());
@@ -263,7 +283,7 @@ fn backspace_run_coalesces_multi_byte_chars() {
 
 #[test]
 fn insertions_and_deletions_do_not_merge() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "ab");
     assert!(t.delete_char());
     assert_eq!(t.lines(), ["a"]);
@@ -276,7 +296,7 @@ fn insertions_and_deletions_do_not_merge() {
 
 #[test]
 fn backspace_over_a_newline_breaks_run() {
-    let mut t = TextArea::from(["ab", "cd"]);
+    let mut t = coalescing_from(["ab", "cd"]);
     t.move_cursor(CursorMove::End);
     t.move_cursor(CursorMove::Down);
     t.move_cursor(CursorMove::End);
@@ -293,7 +313,7 @@ fn backspace_over_a_newline_breaks_run() {
 
 #[test]
 fn typing_after_an_undo_starts_a_new_run() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "ab");
     type_chars(&mut t, "cd");
     assert!(t.undo());
@@ -308,7 +328,7 @@ fn typing_after_an_undo_starts_a_new_run() {
 
 #[test]
 fn disabling_coalescing_restores_per_character_undo() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     t.set_undo_coalescing(false);
     assert!(!t.undo_coalescing());
     type_chars(&mut t, "hello");
@@ -322,7 +342,7 @@ fn disabling_coalescing_restores_per_character_undo() {
 
 #[test]
 fn disabling_coalescing_mid_run_breaks_it() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "ab");
     t.set_undo_coalescing(false);
     type_chars(&mut t, "cd");
@@ -372,15 +392,15 @@ fn assert_round_trip(t: &mut TextArea<'_>) {
 
 #[test]
 fn undo_redo_round_trips_over_mixed_edits() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "the quick brown fox");
     assert_round_trip(&mut t);
 
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "🐶🐱 🐰🐮 ab");
     assert_round_trip(&mut t);
 
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "hello wrld");
     for _ in 0..4 {
         assert!(t.delete_char());
@@ -392,7 +412,7 @@ fn undo_redo_round_trips_over_mixed_edits() {
     assert!(t.delete_word());
     assert_round_trip(&mut t);
 
-    let mut t = TextArea::from(["alpha beta gamma"]);
+    let mut t = coalescing_from(["alpha beta gamma"]);
     t.move_cursor(CursorMove::End);
     while t.delete_char() {}
     assert_round_trip(&mut t);
@@ -400,7 +420,7 @@ fn undo_redo_round_trips_over_mixed_edits() {
 
 #[test]
 fn redo_is_discarded_after_a_new_edit() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     type_chars(&mut t, "one two");
     assert!(t.undo());
     assert_eq!(t.lines(), ["one "]);
@@ -412,7 +432,7 @@ fn redo_is_discarded_after_a_new_edit() {
 
 #[test]
 fn coalescing_does_not_consume_history_slots() {
-    let mut t = TextArea::default();
+    let mut t = coalescing();
     t.set_max_histories(1);
     type_chars(&mut t, "hello");
 
