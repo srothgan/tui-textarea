@@ -79,12 +79,9 @@ impl EditKind {
         }
     }
 
-    // Whitespace is merged into the run it ends and then closes it, so undo walks back a word at a time
+    // Only single-character edits can grow a run. Where the run ends is decided by continues_run
     fn keeps_run_open(&self) -> bool {
-        match self {
-            EditKind::InsertChar(c) | EditKind::DeleteChar(c) => !c.is_whitespace(),
-            _ => false,
-        }
+        matches!(self, EditKind::InsertChar(_) | EditKind::DeleteChar(_))
     }
 
     // A run covers one CharKind, so undo stops on the same boundaries as delete_word and

@@ -2351,7 +2351,8 @@ impl<'a> TextArea<'a> {
     ///
     /// A run covers characters of one class (word, punctuation or whitespace), so undo stops on the
     /// same boundaries as [`TextArea::delete_word`] and [`CursorMove::WordForward`]. Trailing
-    /// whitespace joins the run it ends rather than starting a new one. A pause of 500 milliseconds
+    /// whitespace joins the run it ends rather than starting a new one, and consecutive spaces or
+    /// tabs stay in that same run. A pause of 500 milliseconds
     /// or more also ends a run, so text typed in separate sittings stays separate. A newline, cursor
     /// move, paste, range deletion or switch between inserting and deleting ends a run as well.
     /// ```

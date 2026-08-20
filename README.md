@@ -531,7 +531,7 @@ textarea.set_undo_coalescing(true);
 
 A run covers characters of one class, so undo stops at the same boundaries as `TextArea::delete_word()` and
 `CursorMove::WordForward`. Typing `foo();bar()` undoes as `foo`, `();`, `bar`, `()`. Trailing whitespace joins the run
-that it ends, so undo never stops on a dangling separator.
+that it ends, and consecutive spaces or tabs stay in that same run, so undo never stops on a dangling separator.
 
 A pause of 500 milliseconds or more also ends a run, so text typed in separate sittings stays separate. A newline, a
 cursor move, a paste, a range deletion, or a change between insertion and deletion ends a run as well.

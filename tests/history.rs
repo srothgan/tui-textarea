@@ -140,6 +140,10 @@ fn undo_boundaries_match_delete_word() {
         "#[derive(Clone)]",
         "my_var2 = 3",
         "hello big world",
+        "hello  world",
+        "hello   world",
+        "a\t\tb",
+        "x  =  1",
     ] {
         assert_eq!(
             undo_chunks(s),
@@ -170,6 +174,56 @@ fn whitespace_breaks_run_into_words() {
         assert!(t.redo());
         assert_eq!(t.lines(), [expected]);
     }
+}
+
+#[test]
+fn consecutive_whitespace_stays_in_one_run() {
+    let mut t = coalescing();
+    type_chars(&mut t, "hello  world");
+
+    // Both spaces belong to the run they end, exactly as delete_word groups them
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["hello  "]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
+#[test]
+fn consecutive_tabs_stay_in_one_run() {
+    let mut t = coalescing();
+    type_chars(&mut t, "a\t\tb");
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["a\t\t"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), [""]);
+}
+
+#[test]
+fn backspace_run_keeps_consecutive_whitespace_together() {
+    let mut t = coalescing_from(["hello  world"]);
+    t.move_cursor(CursorMove::End);
+    while t.delete_char() {}
+    assert_eq!(t.lines(), [""]);
+
+    // Backspace walks backwards, so both spaces attach to the "world" run and restore with it
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["hello"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["hello  world"]);
+    assert!(!t.undo());
+}
+
+#[test]
+fn backspace_run_keeps_consecutive_tabs_together() {
+    let mut t = coalescing_from(["a\t\tb"]);
+    t.move_cursor(CursorMove::End);
+    while t.delete_char() {}
+
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["a"]);
+    assert!(t.undo());
+    assert_eq!(t.lines(), ["a\t\tb"]);
 }
 
 #[test]
