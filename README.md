@@ -6,45 +6,27 @@ tui-textarea-2
 [![Rust Clippy][clippy-badge]][clippy]
 [![coverage][codecov-badge]][codecov]
 
-[tui-textarea-2][crate] is a simple yet powerful text editor widget like <textarea> in HTML for [ratatui][].
-Multi-line text editor can be easily put as part of your TUI application.
+[tui-textarea-2][crate] is a simple yet powerful text editor widget like `<textarea>` in HTML for [ratatui][]. A multi-line text editor can be easily added to your TUI application.
 
 > Maintained fork notice: this repository is maintained under `srothgan/tui-textarea` to keep compatibility updates moving (including ratatui 0.30+ support and maintenance fixes).
 
-Since this fork was created, it has added or integrated:
+## Features
 
-- Compatibility updates for current ratatui releases plus Rust 2024 / `rust-version = 1.85.0`
-- `TextArea::clear()` and custom highlight APIs
-- Unicode-aware soft-wrap modes via `WrapMode::{None, Word, Glyph, WordOrGlyph}`
-- Wrapped-line Up/Down cursor navigation that follows visual rows
-- Row measurement via `TextAreaMeasure`, `TextArea::measure()`, `set_min_rows()`, and `set_max_rows()`
-- Bulk whole-buffer replacement via `TextArea::set_lines()`
-- Opt-in atomic ranges for caller-owned placeholders, mentions, or other indivisible spans
-- Opt-in native terminal cursor integration via `CursorRenderMode::Hidden` and `rendered_cursor_position()`
-- Opt-in undo coalescing via `set_undo_coalescing()`, grouping typed characters into word-sized undo steps
-
-**Features:**
-
-- Multi-line text editor widget with basic operations (insert/delete characters, auto scrolling, ...)
-- Emacs-like shortcuts (`C-n`/`C-p`/`C-f`/`C-b`, `M-f`/`M-b`, `C-a`/`C-e`, `C-h`/`C-d`, `C-k`, `M-<`/`M->`, ...)
-- Undo/Redo
-- Line number
-- Cursor line highlight
-- Unicode-aware soft wrap with visual-line cursor navigation
+- Multi-line editing with insertion, deletion, clearing, automatic scrolling, and whole-buffer replacement
+- Emacs-like shortcuts (`C-n`/`C-p`/`C-f`/`C-b`, `M-f`/`M-b`, `C-a`/`C-e`, `C-h`/`C-d`, `C-k`, `M-<`/`M->`, and more)
+- Backend-normalized keyboard input, including Shift+Tab (`BackTab`)
+- Undo and redo with optional word-sized coalescing for typing and backspace runs
+- Unicode-aware soft wrapping with word, glyph, and word-or-glyph modes plus visual-line cursor navigation
 - Dynamic row measurement for auto-sizing layouts
-- Bulk content replacement without rebuilding widget configuration
-- Search with regular expressions
-- Text selection
-- Custom highlighted ranges
-- Opt-in atomic ranges for indivisible editing spans
-- Opt-in undo coalescing that groups typing into word-sized undo steps
-- Placeholder and masking support
-- Optional native terminal cursor placement while keeping backend-specific cursor shape control outside the widget
-- Mouse scrolling
-- Yank support. Paste text deleted with `C-k`, `C-j`, ...
-- Backend agnostic. [crossterm][], [termion][], [termwiz][], and your own backend are all supported
-- Multiple textarea widgets in the same screen
-- Support [ratatui][]
+- Line numbers, cursor-line styling, text selection, and custom highlighted ranges
+- Regular-expression search through the optional `search` feature
+- Plain or styled multiline placeholders and text masking
+- Atomic ranges for caller-owned mentions, tokens, placeholders, and other indivisible editing spans
+- Yank support for pasting text deleted with `C-k`, `C-j`, and related operations
+- Native terminal cursor integration while keeping backend-specific cursor shape control outside the widget
+- Mouse scrolling and high-level cursor hit testing through `TextArea::cursor_at_position`
+- Multiple textarea widgets on the same screen
+- Backend-agnostic Ratatui support for [crossterm][], [termion][], [termwiz][], and custom backends
 
 [Documentation][doc]
 
@@ -871,9 +853,7 @@ println!("{input:?}");
 
 ## Minimum Supported Rust Version
 
-MSRV of this crate is Rust 1.85.0 because the crate uses Rust 2024 edition.
-
-This crate targets Rust 1.85.0 regardless of which supported ratatui backend feature you enable.
+The minimum supported Rust version is 1.88.0 regardless of which supported Ratatui backend feature you enable.
 
 ## Versioning
 
