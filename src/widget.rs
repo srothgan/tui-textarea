@@ -1,6 +1,7 @@
 use crate::ratatui::buffer::Buffer;
 use crate::ratatui::layout::{Position, Rect};
-use crate::ratatui::text::{Line, Span, Text};
+use crate::ratatui::style::Style;
+use crate::ratatui::text::{Span, Text};
 use crate::ratatui::widgets::{Paragraph, Widget};
 use crate::textarea::{CursorRenderMode, TextArea};
 use crate::util::num_digits;
@@ -110,13 +111,14 @@ impl<'a> TextArea<'a> {
     }
 
     fn placeholder_widget(&'a self) -> Text<'a> {
-        let text = Span::raw(self.placeholder.as_str());
+        let mut placeholder = self.placeholder.clone();
         if self.cursor_render_mode() == CursorRenderMode::Cell {
             let cursor = Span::styled(" ", self.cursor_style);
-            Text::from(Line::from(vec![cursor, text]))
-        } else {
-            Text::from(Line::from(vec![text]))
+            if let Some(line) = placeholder.lines.first_mut() {
+                line.spans.insert(0, cursor);
+            }
         }
+        placeholder
     }
 
     fn scroll_top_row(&self, prev_top: u16, height: u16) -> u16 {
@@ -151,7 +153,7 @@ impl<'a> TextArea<'a> {
         }
 
         let Rect { width, height, .. } = inner_area;
-        let placeholder_active = !self.placeholder.is_empty() && self.is_empty();
+        let placeholder_active = !self.placeholder.lines.is_empty() && self.is_empty();
         let (prev_top_row, prev_top_col) = self.viewport.scroll_top();
 
         let (top_row, top_col) = if placeholder_active {
@@ -228,7 +230,7 @@ impl Widget for &TextArea<'_> {
         let Rect { width, height, .. } = plan.inner_area;
 
         let (text, style) = if plan.placeholder_active {
-            (self.placeholder_widget(), self.placeholder_style)
+            (self.placeholder_widget(), Style::default())
         } else {
             (
                 self.text_widget(plan.top_row as _, height as _),

@@ -1,6 +1,7 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::Widget as _;
 use ratatui::widgets::{Block, Borders};
 use std::cmp;
@@ -1744,6 +1745,75 @@ fn hidden_mode_placeholder_does_not_draw_cursor_cell() {
         textarea.rendered_cursor_position(),
         Some(Position { x: 0, y: 0 })
     );
+}
+
+#[test]
+fn styled_placeholder_preserves_text_structure_and_legacy_accessors() {
+    let mut textarea = TextArea::default();
+    let base_style = Style::default().bg(Color::Blue);
+    let placeholder = Text::from_iter([
+        Line::from(vec![
+            Span::styled("Required: ", Style::default().fg(Color::Red)),
+            Span::styled("name", Style::default().fg(Color::Green)),
+        ]),
+        Line::raw("Second line"),
+    ])
+    .style(base_style);
+
+    textarea.set_styled_placeholder(placeholder.clone());
+
+    assert_eq!(textarea.placeholder(), &placeholder);
+    assert_eq!(textarea.placeholder_text(), "Required: ");
+    assert_eq!(textarea.placeholder_style(), Some(base_style));
+
+    textarea.set_placeholder_text("Plain");
+    assert_eq!(textarea.placeholder().lines, [Line::raw("Plain")]);
+    assert_eq!(textarea.placeholder_style(), Some(base_style));
+
+    textarea.set_placeholder_text("");
+    assert!(textarea.placeholder().lines.is_empty());
+    assert_eq!(textarea.placeholder_text(), "");
+    assert_eq!(textarea.placeholder_style(), None);
+}
+
+#[test]
+fn styled_placeholder_renders_spans_and_lines() {
+    let mut textarea = TextArea::default();
+    textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+    textarea.set_styled_placeholder(Text::from_iter([
+        Line::from(vec![
+            Span::styled("red", Style::default().fg(Color::Red)),
+            Span::styled("green", Style::default().fg(Color::Green)),
+        ]),
+        Line::styled("blue", Style::default().fg(Color::Blue)),
+    ]));
+
+    let buf = render_textarea(&textarea, Rect::new(0, 0, 12, 2));
+
+    assert_eq!(buf[(0, 0)].symbol(), "r");
+    assert_eq!(buf[(0, 0)].style().fg, Some(Color::Red));
+    assert_eq!(buf[(3, 0)].symbol(), "g");
+    assert_eq!(buf[(3, 0)].style().fg, Some(Color::Green));
+    assert_eq!(buf[(0, 1)].symbol(), "b");
+    assert_eq!(buf[(0, 1)].style().fg, Some(Color::Blue));
+}
+
+#[test]
+fn cell_cursor_keeps_styled_placeholder_spans() {
+    let mut textarea = TextArea::default();
+    let cursor_style = Style::default().bg(Color::Yellow);
+    textarea.set_cursor_style(cursor_style);
+    textarea.set_styled_placeholder(Line::from(vec![Span::styled(
+        "hint",
+        Style::default().fg(Color::Cyan),
+    )]));
+
+    let buf = render_textarea(&textarea, Rect::new(0, 0, 8, 1));
+
+    assert_eq!(buf[(0, 0)].symbol(), " ");
+    assert_eq!(buf[(0, 0)].style().bg, Some(Color::Yellow));
+    assert_eq!(buf[(1, 0)].symbol(), "h");
+    assert_eq!(buf[(1, 0)].style().fg, Some(Color::Cyan));
 }
 
 #[test]
