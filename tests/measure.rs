@@ -1,5 +1,6 @@
 use ratatui::layout::Alignment;
 use ratatui::style::Style;
+use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, Borders};
 use tui_textarea::{TextArea, TextAreaMeasure, WrapMode};
 
@@ -221,4 +222,20 @@ fn set_lines_updates_measurement_immediately() {
     assert_eq!(textarea.measure(4).content_rows, 1);
     textarea.set_lines(vec!["abcdef".to_string()], (0, 6));
     assert_eq!(textarea.measure(4).content_rows, 2);
+}
+
+#[test]
+fn styled_placeholder_uses_explicit_line_count_and_invalidates_cache() {
+    let mut textarea = TextArea::default();
+    assert_eq!(textarea.measure(12).content_rows, 1);
+
+    textarea.set_styled_placeholder(Text::from_iter([
+        Line::raw("First"),
+        Line::raw("Second"),
+        Line::raw("Third"),
+    ]));
+
+    assert_eq!(textarea.measure(12).content_rows, 3);
+    textarea.set_placeholder_text("Single");
+    assert_eq!(textarea.measure(12).content_rows, 1);
 }

@@ -4,7 +4,7 @@ use crate::history::{Edit, EditKind, History};
 use crate::input::{Input, Key};
 use crate::ratatui::layout::{Alignment, Position, Rect};
 use crate::ratatui::style::{Color, Modifier, Style};
-use crate::ratatui::text::Line;
+use crate::ratatui::text::{Line, Text};
 use crate::ratatui::widgets::{Block, Widget};
 use crate::screen_map::{DataLine, ScreenLine};
 use crate::scroll::Scrolling;
@@ -220,8 +220,7 @@ pub struct TextArea<'a> {
     wrap_mode: WrapMode,
     min_rows: u16,
     max_rows: u16,
-    pub(crate) placeholder: String,
-    pub(crate) placeholder_style: Style,
+    pub(crate) placeholder: Text<'a>,
     mask: Option<char>,
     selection_start: Option<DataCursor>,
     select_style: Style,
@@ -341,8 +340,7 @@ impl<'a> TextArea<'a> {
             wrap_mode: WrapMode::None,
             min_rows: 1,
             max_rows: u16::MAX,
-            placeholder: String::new(),
-            placeholder_style: Style::default().fg(Color::DarkGray),
+            placeholder: Text::default().style(Style::default().fg(Color::DarkGray)),
             mask: None,
             selection_start: None,
             select_style: Style::default().bg(Color::LightBlue),
@@ -2453,8 +2451,7 @@ impl<'a> TextArea<'a> {
         self.line_number_style
     }
 
-    /// Set the placeholder text. The text is set in the textarea when no text is input. Setting a non-empty string `""`
-    /// enables the placeholder. The default value is an empty string so the placeholder is disabled by default.
+    /// Set the placeholder text. The text is shown when the textarea is empty. Setting a non-empty string enables the placeholder. The default value is an empty string so the placeholder is disabled by default.
     /// To customize the text style, see [`TextArea::set_placeholder_style`].
     /// ```
     /// use tui_textarea::TextArea;
@@ -2468,7 +2465,12 @@ impl<'a> TextArea<'a> {
     /// assert!(textarea.placeholder_style().is_some());
     /// ```
     pub fn set_placeholder_text(&mut self, placeholder: impl Into<String>) {
-        self.placeholder = placeholder.into();
+        let placeholder = placeholder.into();
+        if placeholder.is_empty() {
+            self.placeholder.lines.clear();
+        } else {
+            self.placeholder.lines = vec![Line::raw(placeholder)];
+        }
         self.reset_measure_cache();
     }
 
@@ -2487,10 +2489,38 @@ impl<'a> TextArea<'a> {
     /// assert_eq!(textarea.placeholder_style(), Some(style));
     /// ```
     pub fn set_placeholder_style(&mut self, style: Style) {
-        self.placeholder_style = style;
+        self.placeholder.style = style;
     }
 
-    /// Get the placeholder text. An empty string means the placeholder is disabled. The default value is an empty string.
+    /// Set a styled placeholder. The placeholder is shown when the textarea is empty and may contain multiple styled spans or lines. Pass [`Text::default()`] to disable it.
+    ///
+    /// This accepts any value that converts into [`Text`], including strings, [`Line`] values, and complete `Text` values.
+    /// ```
+    /// use ratatui::style::{Color, Style};
+    /// use ratatui::text::{Line, Span, Text};
+    /// use tui_textarea::TextArea;
+    ///
+    /// let mut textarea = TextArea::default();
+    /// textarea.set_styled_placeholder(Line::from(vec![
+    ///     Span::styled("Required: ", Style::default().fg(Color::Red)),
+    ///     Span::raw("enter your name"),
+    /// ]));
+    /// assert_eq!(textarea.placeholder().lines.len(), 1);
+    ///
+    /// textarea.set_styled_placeholder(Text::from_iter([Line::raw("First line"), Line::raw("Second line")]));
+    /// assert_eq!(textarea.placeholder().lines.len(), 2);
+    /// ```
+    pub fn set_styled_placeholder(&mut self, placeholder: impl Into<Text<'a>>) {
+        self.placeholder = placeholder.into();
+        self.reset_measure_cache();
+    }
+
+    /// Get the complete placeholder, including its lines, spans, and styles.
+    pub fn placeholder(&self) -> &Text<'a> {
+        &self.placeholder
+    }
+
+    /// Get the first span of the first placeholder line. This preserves the legacy plain-text API; use [`TextArea::placeholder`] to inspect a styled or multiline placeholder.
     /// ```
     /// use tui_textarea::TextArea;
     ///
@@ -2498,7 +2528,11 @@ impl<'a> TextArea<'a> {
     /// assert_eq!(textarea.placeholder_text(), "");
     /// ```
     pub fn placeholder_text(&self) -> &'_ str {
-        self.placeholder.as_str()
+        self.placeholder
+            .lines
+            .first()
+            .and_then(|line| line.spans.first())
+            .map_or("", |span| span.content.as_ref())
     }
 
     /// Get the placeholder style. When the placeholder text is empty, it returns `None` since the placeholder is disabled.
@@ -2513,10 +2547,10 @@ impl<'a> TextArea<'a> {
     /// assert!(textarea.placeholder_style().is_some());
     /// ```
     pub fn placeholder_style(&self) -> Option<Style> {
-        if self.placeholder.is_empty() {
+        if self.placeholder.lines.is_empty() {
             None
         } else {
-            Some(self.placeholder_style)
+            Some(self.placeholder.style)
         }
     }
 
@@ -2894,8 +2928,8 @@ impl<'a> TextArea<'a> {
     }
 
     fn measure_content_rows(&self, width_cols: u16) -> u16 {
-        if !self.placeholder.is_empty() && self.is_empty() {
-            return 1;
+        if !self.placeholder.lines.is_empty() && self.is_empty() {
+            return self.placeholder.lines.len().min(u16::MAX as usize) as u16;
         }
 
         let rows = if self.wrap_mode == WrapMode::None {
@@ -3335,6 +3369,16 @@ mod tests {
         assert!(textarea.measure_cache.is_some());
 
         textarea.set_placeholder_text("placeholder");
+        assert_eq!(textarea.measure_cache, None);
+    }
+
+    #[test]
+    fn set_styled_placeholder_resets_measure_cache() {
+        let mut textarea = TextArea::default();
+        textarea.measure(4);
+        assert!(textarea.measure_cache.is_some());
+
+        textarea.set_styled_placeholder(Text::from_iter([Line::raw("First"), Line::raw("Second")]));
         assert_eq!(textarea.measure_cache, None);
     }
 

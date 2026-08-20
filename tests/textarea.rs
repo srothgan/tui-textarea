@@ -1,6 +1,7 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::Widget as _;
 use ratatui::widgets::{Block, Borders};
 use std::cmp;
@@ -1747,6 +1748,75 @@ fn hidden_mode_placeholder_does_not_draw_cursor_cell() {
 }
 
 #[test]
+fn styled_placeholder_preserves_text_structure_and_legacy_accessors() {
+    let mut textarea = TextArea::default();
+    let base_style = Style::default().bg(Color::Blue);
+    let placeholder = Text::from_iter([
+        Line::from(vec![
+            Span::styled("Required: ", Style::default().fg(Color::Red)),
+            Span::styled("name", Style::default().fg(Color::Green)),
+        ]),
+        Line::raw("Second line"),
+    ])
+    .style(base_style);
+
+    textarea.set_styled_placeholder(placeholder.clone());
+
+    assert_eq!(textarea.placeholder(), &placeholder);
+    assert_eq!(textarea.placeholder_text(), "Required: ");
+    assert_eq!(textarea.placeholder_style(), Some(base_style));
+
+    textarea.set_placeholder_text("Plain");
+    assert_eq!(textarea.placeholder().lines, [Line::raw("Plain")]);
+    assert_eq!(textarea.placeholder_style(), Some(base_style));
+
+    textarea.set_placeholder_text("");
+    assert!(textarea.placeholder().lines.is_empty());
+    assert_eq!(textarea.placeholder_text(), "");
+    assert_eq!(textarea.placeholder_style(), None);
+}
+
+#[test]
+fn styled_placeholder_renders_spans_and_lines() {
+    let mut textarea = TextArea::default();
+    textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+    textarea.set_styled_placeholder(Text::from_iter([
+        Line::from(vec![
+            Span::styled("red", Style::default().fg(Color::Red)),
+            Span::styled("green", Style::default().fg(Color::Green)),
+        ]),
+        Line::styled("blue", Style::default().fg(Color::Blue)),
+    ]));
+
+    let buf = render_textarea(&textarea, Rect::new(0, 0, 12, 2));
+
+    assert_eq!(buf[(0, 0)].symbol(), "r");
+    assert_eq!(buf[(0, 0)].style().fg, Some(Color::Red));
+    assert_eq!(buf[(3, 0)].symbol(), "g");
+    assert_eq!(buf[(3, 0)].style().fg, Some(Color::Green));
+    assert_eq!(buf[(0, 1)].symbol(), "b");
+    assert_eq!(buf[(0, 1)].style().fg, Some(Color::Blue));
+}
+
+#[test]
+fn cell_cursor_keeps_styled_placeholder_spans() {
+    let mut textarea = TextArea::default();
+    let cursor_style = Style::default().bg(Color::Yellow);
+    textarea.set_cursor_style(cursor_style);
+    textarea.set_styled_placeholder(Line::from(vec![Span::styled(
+        "hint",
+        Style::default().fg(Color::Cyan),
+    )]));
+
+    let buf = render_textarea(&textarea, Rect::new(0, 0, 8, 1));
+
+    assert_eq!(buf[(0, 0)].symbol(), " ");
+    assert_eq!(buf[(0, 0)].style().bg, Some(Color::Yellow));
+    assert_eq!(buf[(1, 0)].symbol(), "h");
+    assert_eq!(buf[(1, 0)].style().fg, Some(Color::Cyan));
+}
+
+#[test]
 fn rendered_cursor_position_returns_none_before_first_render() {
     let textarea = TextArea::default();
     assert_eq!(textarea.rendered_cursor_position(), None);
@@ -1852,6 +1922,175 @@ fn rendered_cursor_position_handles_tabs() {
     assert_eq!(
         textarea.rendered_cursor_position(),
         Some(Position { x: 4, y: 0 })
+    );
+}
+
+#[test]
+fn cursor_at_position_requires_a_rendered_inner_area() {
+    let mut textarea = TextArea::from(["abc"]);
+    assert_eq!(textarea.cursor_at_position(Position::new(0, 0)), None);
+
+    textarea.set_block(Block::default().borders(Borders::ALL));
+    render_textarea(&textarea, Rect::new(10, 5, 8, 3));
+
+    assert_eq!(textarea.cursor_at_position(Position::new(10, 6)), None);
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(11, 6)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(13, 6)),
+        Some((0, 2))
+    );
+    assert_eq!(textarea.cursor_at_position(Position::new(11, 7)), None);
+}
+
+#[test]
+fn cursor_at_position_accounts_for_line_numbers() {
+    let lines = (0..10).map(|_| "abc").collect::<Vec<_>>();
+    let mut textarea = TextArea::from(lines);
+    textarea.set_line_number_style(Style::default());
+    render_textarea(&textarea, Rect::new(0, 0, 10, 3));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(0, 0)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(3, 0)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(5, 0)),
+        Some((0, 1))
+    );
+}
+
+#[test]
+fn cursor_at_position_accounts_for_vertical_and_horizontal_scroll() {
+    let mut textarea = TextArea::from((0..10).map(|row| format!("row{row}abcdefgh")));
+    textarea.move_cursor(CursorMove::Jump(9, 11));
+    render_textarea(&textarea, Rect::new(4, 3, 5, 3));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(4, 3)),
+        Some((7, 7))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(8, 5)),
+        Some((9, 11))
+    );
+}
+
+#[test]
+fn cursor_at_position_composes_horizontal_scroll_and_line_numbers() {
+    let mut textarea = TextArea::from((0..10).map(|_| "abcdefghij"));
+    textarea.set_line_number_style(Style::default());
+    textarea.move_cursor(CursorMove::Jump(0, 10));
+    render_textarea(&textarea, Rect::new(0, 0, 6, 2));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(0, 0)),
+        Some((0, 5))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(5, 0)),
+        Some((0, 10))
+    );
+}
+
+#[test]
+fn cursor_at_position_follows_wrapped_rows_and_clamps_each_row() {
+    let mut textarea = TextArea::from(["abcdefghij"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render_textarea(&textarea, Rect::new(2, 4, 5, 2));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(4, 5)),
+        Some((0, 7))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(6, 4)),
+        Some((0, 4))
+    );
+}
+
+#[test]
+fn cursor_at_position_handles_tabs_and_wide_unicode() {
+    let textarea = TextArea::from(["a中\tb"]);
+    render_textarea(&textarea, Rect::new(0, 0, 8, 1));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(1, 0)),
+        Some((0, 1))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(2, 0)),
+        Some((0, 1))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(3, 0)),
+        Some((0, 2))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(4, 0)),
+        Some((0, 3))
+    );
+}
+
+#[test]
+fn cursor_at_position_accounts_for_center_and_right_alignment() {
+    let mut textarea = TextArea::from(["abc"]);
+    textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+    textarea.set_alignment(Alignment::Center);
+    render_textarea(&textarea, Rect::new(0, 0, 9, 1));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(2, 0)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(4, 0)),
+        Some((0, 1))
+    );
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position::new(3, 0))
+    );
+
+    textarea.move_cursor(CursorMove::Jump(0, 1));
+    textarea.set_alignment(Alignment::Right);
+    render_textarea(&textarea, Rect::new(0, 0, 9, 1));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(5, 0)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(7, 0)),
+        Some((0, 1))
+    );
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position::new(7, 0))
+    );
+}
+
+#[test]
+fn cursor_at_position_clamps_blank_space_and_placeholder() {
+    let textarea = TextArea::from(["ab", "c"]);
+    render_textarea(&textarea, Rect::new(0, 0, 8, 4));
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(7, 3)),
+        Some((1, 1))
+    );
+
+    let mut placeholder = TextArea::default();
+    placeholder.set_placeholder_text("Type here");
+    render_textarea(&placeholder, Rect::new(0, 0, 8, 2));
+    assert_eq!(
+        placeholder.cursor_at_position(Position::new(7, 1)),
+        Some((0, 0))
     );
 }
 
