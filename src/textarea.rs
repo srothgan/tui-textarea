@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
 use std::cmp::{self, Ordering};
 use std::fmt;
+use std::time::Instant;
 use unicode_width::UnicodeWidthChar as _;
 
 #[derive(Debug, Clone)]
@@ -868,7 +869,8 @@ impl<'a> TextArea<'a> {
         let DataCursor(row, col) = self.cursor;
         let after = Pos::new(row, col, after_offset);
         let edit = Edit::new(kind, before, after);
-        self.history.push(edit, self.undo_coalescing);
+        self.history
+            .push(edit, self.undo_coalescing, Instant::now());
         self.atomic_ranges.clear();
         self.refresh_screen_map();
         self.reset_measure_cache();
@@ -2349,8 +2351,9 @@ impl<'a> TextArea<'a> {
     ///
     /// A run covers characters of one class (word, punctuation or whitespace), so undo stops on the
     /// same boundaries as [`TextArea::delete_word`] and [`CursorMove::WordForward`]. Trailing
-    /// whitespace joins the run it ends rather than starting a new one. A newline, cursor move,
-    /// paste, range deletion or switch between inserting and deleting also ends a run.
+    /// whitespace joins the run it ends rather than starting a new one. A pause of 500 milliseconds
+    /// or more also ends a run, so text typed in separate sittings stays separate. A newline, cursor
+    /// move, paste, range deletion or switch between inserting and deleting ends a run as well.
     /// ```
     /// use tui_textarea::TextArea;
     ///
@@ -3239,6 +3242,7 @@ mod tests {
                 Pos::new(0, 0, 0),
             ),
             false,
+            Instant::now(),
         );
 
         assert!(textarea.undo());
@@ -3256,6 +3260,7 @@ mod tests {
                 Pos::new(1, 10, 0),
             ),
             false,
+            Instant::now(),
         );
 
         assert!(textarea.undo());

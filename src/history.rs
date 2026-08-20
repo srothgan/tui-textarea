@@ -1,6 +1,10 @@
 use crate::util::Pos;
 use crate::word::CharKind;
 use std::collections::VecDeque;
+use std::time::{Duration, Instant};
+
+// A pause longer than this ends the current typing run, as in most editors
+const GROUP_INTERVAL: Duration = Duration::from_millis(500);
 
 #[derive(Clone, Debug)]
 pub enum EditKind {
@@ -194,6 +198,7 @@ pub struct History {
     max_items: usize,
     edits: VecDeque<Edit>,
     run_open: bool,
+    last_edit_at: Option<Instant>,
 }
 
 impl History {
@@ -203,19 +208,21 @@ impl History {
             max_items,
             edits: VecDeque::new(),
             run_open: false,
+            last_edit_at: None,
         }
     }
 
-    pub fn push(&mut self, edit: Edit, coalesce: bool) {
+    pub fn push(&mut self, edit: Edit, coalesce: bool, now: Instant) {
         if self.max_items == 0 {
             return;
         }
 
         if coalesce
-            && self.can_extend_run()
+            && self.can_extend_run(now)
             && self.edits.back_mut().is_some_and(|last| last.merge(&edit))
         {
             self.run_open = edit.kind.keeps_run_open();
+            self.last_edit_at = Some(now);
             return;
         }
 
@@ -230,12 +237,17 @@ impl History {
 
         self.index += 1;
         self.run_open = edit.kind.keeps_run_open();
+        self.last_edit_at = Some(now);
         self.edits.push_back(edit);
     }
 
-    // The newest edit is an open run and nothing has been undone since
-    fn can_extend_run(&self) -> bool {
-        self.run_open && self.index == self.edits.len()
+    // The newest edit is an open run, nothing has been undone since, and the pause was short enough
+    fn can_extend_run(&self, now: Instant) -> bool {
+        self.run_open
+            && self.index == self.edits.len()
+            && self
+                .last_edit_at
+                .is_some_and(|at| now.duration_since(at) < GROUP_INTERVAL)
     }
 
     pub fn break_run(&mut self) {
@@ -269,6 +281,63 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Typing one character at `col`, as TextArea::insert_char builds it
+    fn typed(c: char, col: usize) -> Edit {
+        Edit::new(
+            EditKind::InsertChar(c),
+            Pos::new(0, col, col),
+            Pos::new(0, col + 1, col + 1),
+        )
+    }
+
+    // Instants are passed in rather than read from the clock, so these tests need no sleeps
+    #[test]
+    fn a_short_pause_extends_the_run() {
+        let start = Instant::now();
+        let mut history = History::new(50);
+
+        history.push(typed('a', 0), true, start);
+        history.push(typed('b', 1), true, start + Duration::from_millis(100));
+
+        assert_eq!(history.edits.len(), 1);
+    }
+
+    #[test]
+    fn a_long_pause_ends_the_run() {
+        let start = Instant::now();
+        let mut history = History::new(50);
+
+        history.push(typed('a', 0), true, start);
+        history.push(typed('b', 1), true, start + GROUP_INTERVAL);
+
+        assert_eq!(history.edits.len(), 2);
+    }
+
+    #[test]
+    fn the_pause_is_measured_from_the_last_edit_not_the_run_start() {
+        let start = Instant::now();
+        let mut history = History::new(50);
+
+        // Each gap stays under the interval, so a slow but steady typist keeps one run
+        for (i, c) in "abcd".chars().enumerate() {
+            let at = start + GROUP_INTERVAL / 2 * i as u32;
+            history.push(typed(c, i), true, at);
+        }
+
+        assert_eq!(history.edits.len(), 1);
+    }
+
+    #[test]
+    fn a_long_pause_does_not_split_runs_when_coalescing_is_off() {
+        let start = Instant::now();
+        let mut history = History::new(50);
+
+        history.push(typed('a', 0), false, start);
+        history.push(typed('b', 1), false, start + Duration::from_secs(10));
+
+        assert_eq!(history.edits.len(), 2);
+    }
 
     #[test]
     fn insert_delete_chunk() {
