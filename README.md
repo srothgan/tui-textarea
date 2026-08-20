@@ -6,7 +6,18 @@ tui-textarea-2
 [![Rust Clippy][clippy-badge]][clippy]
 [![coverage][codecov-badge]][codecov]
 
+- [API documentation][doc]
+- [Features](#features)
+- [Installation](#installation)
+- [Examples](#examples)
+- [Minimal usage](#minimal-usage)
+- [Basic usage](#basic-usage)
+- [Advanced usage](#advanced-usage)
+- [Contributing](#contributing-to-tui-textarea-2)
+
 [tui-textarea-2][crate] is a simple yet powerful text editor widget like `<textarea>` in HTML for [ratatui][]. A multi-line text editor can be easily added to your TUI application.
+
+For the complete API reference, see the [tui-textarea-2 documentation on docs.rs][doc].
 
 > Maintained fork notice: this repository is maintained under `srothgan/tui-textarea` to keep compatibility updates moving (including ratatui 0.30+ support and maintenance fixes).
 
@@ -28,112 +39,6 @@ tui-textarea-2
 - Multiple textarea widgets on the same screen
 - Backend-agnostic Ratatui support for [crossterm][], [termion][], [termwiz][], and custom backends
 
-[Documentation][doc]
-
-## Examples
-
-Running `cargo run --example` in this repository can demonstrate usage of tui-textarea.
-
-For consistent GIF capture across the crossterm examples, set `TUI_TEXTAREA_RECORDING=1` for the default `120x30`
-terminal size or override it with `TUI_TEXTAREA_RECORDING_SIZE=<cols>x<rows>`. See
-[`examples/RECORDING.md`](./examples/RECORDING.md) for the recording workflow.
-
-### [`minimal`](./examples/minimal.rs)
-
-```sh
-cargo run --example minimal
-```
-
-Minimal usage with [crossterm][] support.
-
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/minimal.gif" width=539 height=172 alt="minimal example">
-
-### [`editor`](./examples/editor.rs)
-
-```sh
-cargo run --example editor --features search file.txt
-```
-
-Simple text editor to edit multiple files.
-
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/editor.gif" width=560 height=236 alt="editor example">
-
-### [`single_line`](./examples/single_line.rs)
-
-```sh
-cargo run --example single_line
-```
-
-Single-line input form with float number validation.
-
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/single_line.gif" width=539 height=92 alt="single line example">
-
-### [`split`](./examples/split.rs)
-
-```sh
-cargo run --example split
-```
-
-Two split textareas in a screen and switch them. An example for multiple textarea instances.
-
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/split.gif" width=539 height=124 alt="multiple textareas example">
-
-### [`variable`](./examples/variable.rs)
-
-```sh
-cargo run --example variable
-```
-
-Simple textarea with variable height driven by measured preferred rows.
-
-This example now sizes itself from `textarea.measure(width).preferred_rows`.
-
-### [`vim`](./examples/vim.rs)
-
-```sh
-cargo run --example vim
-```
-
-Vim-like modal text editor. Vim emulation is implemented as a state machine.
-
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/vim.gif" width=590 height=156 alt="Vim emulation example">
-
-### [`popup_placeholder`](./examples/popup_placeholder.rs)
-
-```sh
-cargo run --example popup_placeholder
-```
-
-Popup textarea with a placeholder text.
-
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/placepop.gif" width=446 height=220 alt="popup textarea with placeholder example">
-
-### [`password`](./examples/password.rs)
-
-```sh
-cargo run --example password
-```
-
-Password input form with masking text with ●.
-
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/password.gif" width=589 height=92 alt="password example">
-
-### [`termion`](./examples/termion.rs)
-
-```sh
-cargo run --example termion --no-default-features --features=termion
-```
-
-Minimal usage with [termion][] support.
-
-### [`termwiz`](./examples/termwiz.rs)
-
-```sh
-cargo run --example termwiz --no-default-features --features=termwiz
-```
-
-Minimal usage with [termwiz][] support.
-
 ## Installation
 
 Add `tui-textarea` crate to dependencies in your `Cargo.toml`. This enables crossterm backend support by default.
@@ -144,7 +49,7 @@ ratatui = "*"
 tui-textarea = { package = "tui-textarea-2", version = "*" }
 ```
 
-If you need text search with regular expressions, enable `search` feature. It adds [regex crate][regex] as dependency.
+If you need text search with regular expressions, enable the `search` feature. It adds [regex crate][regex] as dependency.
 
 ```toml
 [dependencies]
@@ -152,8 +57,7 @@ ratatui = "*"
 tui-textarea = { package = "tui-textarea-2", version = "*", features = ["search"] }
 ```
 
-If you're using ratatui with [termion][] or [termwiz][], enable the `termion` or `termwiz` feature instead of
-`crossterm` feature.
+If you're using ratatui with [termion][] or [termwiz][], enable the `termion` or `termwiz` feature instead of the `crossterm` feature.
 
 ```toml
 [dependencies]
@@ -173,8 +77,129 @@ The following table shows feature names corresponding to the supported ratatui b
 |---------|----------------------------------|-----------------|-----------|--------------------|
 | ratatui | `crossterm` (enabled by default) | `termion`       | `termwiz` | `no-backend`       |
 
-In addition to above dependencies, you also need to install [crossterm][] or [termion][] or [termwiz][] to initialize
-your application and to receive key inputs.
+In addition to the dependencies above, you also need to install [crossterm][], [termion][], or [termwiz][] to initialize your application and receive key inputs.
+
+## Examples
+
+Running `cargo run --example` in this repository can demonstrate usage of tui-textarea.
+
+The repository includes a [Docker-based recording workflow](./examples/RECORDING.md) that rebuilds every crossterm example GIF from scripted terminal interactions.
+
+### [`minimal`](./examples/minimal.rs)
+
+```sh
+cargo run --example minimal
+```
+
+Minimal usage with [crossterm][] support.
+
+<img src="./assets/minimal.gif" width=600 alt="minimal example">
+
+### [`editor`](./examples/editor.rs)
+
+```sh
+cargo run --example editor --features search file.txt
+```
+
+Simple text editor to edit multiple files.
+
+<img src="./assets/editor.gif" width=600 alt="editor example">
+
+### [`single_line`](./examples/single_line.rs)
+
+```sh
+cargo run --example single_line
+```
+
+Single-line input form with float number validation.
+
+<img src="./assets/single_line.gif" width=600 alt="single line example">
+
+### [`split`](./examples/split.rs)
+
+```sh
+cargo run --example split
+```
+
+Two split textareas in a screen and switch them. An example for multiple textarea instances.
+
+<img src="./assets/split.gif" width=600 alt="multiple textareas example">
+
+### [`variable`](./examples/variable.rs)
+
+```sh
+cargo run --example variable
+```
+
+Auto-sized textarea driven by `textarea.measure(width).preferred_rows` and bounded with minimum and maximum row settings.
+
+<img src="./assets/variable.gif" width=600 alt="auto-sized textarea example">
+
+### [`vim`](./examples/vim.rs)
+
+```sh
+cargo run --example vim
+```
+
+Vim-like modal text editor. Vim emulation is implemented as a state machine.
+
+<img src="./assets/vim.gif" width=600 alt="Vim emulation example">
+
+### [`popup_placeholder`](./examples/popup_placeholder.rs)
+
+```sh
+cargo run --example popup_placeholder
+```
+
+Popup textarea with a multiline placeholder whose spans use independent styles.
+
+<img src="./assets/popup_placeholder.gif" width=600 alt="popup textarea with styled placeholder example">
+
+### [`password`](./examples/password.rs)
+
+```sh
+cargo run --example password
+```
+
+Password input form with masking text with ●.
+
+<img src="./assets/password.gif" width=600 alt="password example">
+
+### [`wrap`](./examples/wrap.rs)
+
+```sh
+cargo run --example wrap
+```
+
+Interactive comparison of word, glyph, and word-or-glyph soft wrapping with Unicode text, tabs, long tokens, and visual-row cursor navigation.
+
+<img src="./assets/wrap.gif" width=600 alt="soft wrapping example">
+
+### [`undo_coalescing`](./examples/undo_coalescing.rs)
+
+```sh
+cargo run --example undo_coalescing
+```
+
+Time-based undo grouping that starts a new undo step after a pause of at least 500 milliseconds.
+
+<img src="./assets/undo_coalescing.gif" width=600 alt="timed undo coalescing example">
+
+### [`termion`](./examples/termion.rs)
+
+```sh
+cargo run --example termion --no-default-features --features=termion
+```
+
+Minimal usage with [termion][] support.
+
+### [`termwiz`](./examples/termwiz.rs)
+
+```sh
+cargo run --example termwiz --no-default-features --features=termwiz
+```
+
+Minimal usage with [termwiz][] support.
 
 ## Minimal Usage
 

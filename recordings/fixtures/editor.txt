@@ -1,0 +1,4 @@
+Tui Textarea Recording
+
+Search this text with Ctrl+G.
+Edit the file, save it with Ctrl+S, and quit with Ctrl+Q.

@@ -1,0 +1,5 @@
+**/target
+/.git
+/assets
+/examples-idea.md
+/fuzz

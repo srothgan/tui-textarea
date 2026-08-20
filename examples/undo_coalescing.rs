@@ -6,15 +6,23 @@ use crossterm::terminal::{
 };
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Style};
-use ratatui::text::{Line, Span};
+use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Paragraph};
 use std::io;
 use tui_textarea::{Input, Key, TextArea};
 
-const MIN_ROWS: u16 = 3;
-const MAX_ROWS: u16 = 8;
+fn centered_area(area: Rect) -> Rect {
+    let width = 72.min(area.width);
+    let height = 9.min(area.height);
+    Rect {
+        width,
+        height,
+        x: area.x + area.width.saturating_sub(width) / 2,
+        y: area.y + area.height.saturating_sub(height) / 2,
+    }
+}
 
 fn main() -> io::Result<()> {
     let stdout = io::stdout();
@@ -27,44 +35,36 @@ fn main() -> io::Result<()> {
     let mut term = Terminal::new(backend)?;
 
     let mut textarea = TextArea::default();
-    textarea.set_min_rows(MIN_ROWS);
-    textarea.set_max_rows(MAX_ROWS);
+    textarea.set_undo_coalescing(true);
+    textarea.set_placeholder_text("Try: type \"hello \", pause, then type \"world\"");
+    textarea.set_placeholder_style(Style::default().fg(Color::DarkGray));
     textarea.set_block(
         Block::default()
             .borders(Borders::ALL)
-            .title("Auto-sized TextArea"),
+            .title("Timed Undo Coalescing"),
     );
 
     loop {
         term.draw(|f| {
-            let measure = textarea.measure(f.area().width);
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(measure.preferred_rows),
-                    Constraint::Length(2),
-                    Constraint::Min(0),
-                ])
-                .split(f.area());
+            let area = centered_area(f.area());
+            let chunks = Layout::vertical([Constraint::Length(3), Constraint::Min(3)]).split(area);
             f.render_widget(&textarea, chunks[0]);
             f.render_widget(
                 Paragraph::new(vec![
-                    Line::from(vec![
-                        Span::styled("preferred rows: ", Style::default().fg(Color::DarkGray)),
-                        Span::styled(
-                            measure.preferred_rows.to_string(),
-                            Style::default().fg(Color::LightCyan),
-                        ),
-                        Span::raw(format!("  (min: {}, max: {})", measure.min_rows, measure.max_rows)),
-                    ]),
                     Line::styled(
-                        "Type lines to grow the textarea; Backspace or Ctrl+U to shrink it; Esc exits.",
+                        "Characters typed continuously are grouped into one undo step.",
+                        Style::default().fg(Color::LightCyan),
+                    ),
+                    Line::styled(
+                        "Pause for at least 500 ms to start a new group, then press Ctrl+U once per group.",
                         Style::default().fg(Color::DarkGray),
                     ),
+                    Line::styled("Esc exits.", Style::default().fg(Color::DarkGray)),
                 ]),
                 chunks[1],
             );
         })?;
+
         match crossterm::event::read()?.into() {
             Input { key: Key::Esc, .. } => break,
             input => {
@@ -82,6 +82,5 @@ fn main() -> io::Result<()> {
     recording.restore(term.backend_mut())?;
     term.show_cursor()?;
 
-    println!("Lines: {:?}", textarea.lines());
     Ok(())
 }
