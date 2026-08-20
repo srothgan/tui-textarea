@@ -1,5 +1,10 @@
 use crate::util::Pos;
+use crate::word::CharKind;
 use std::collections::VecDeque;
+use std::time::{Duration, Instant};
+
+// A pause longer than this ends the current typing run, as in most editors
+const GROUP_INTERVAL: Duration = Duration::from_millis(500);
 
 #[derive(Clone, Debug)]
 pub enum EditKind {
@@ -74,6 +79,27 @@ impl EditKind {
         }
     }
 
+    // Only single-character edits can grow a run. Where the run ends is decided by continues_run
+    fn keeps_run_open(&self) -> bool {
+        matches!(self, EditKind::InsertChar(_) | EditKind::DeleteChar(_))
+    }
+
+    // A run covers one CharKind, so undo stops on the same boundaries as delete_word and
+    // CursorMove::WordForward. Whitespace joins the run it ends instead of starting a new one.
+    fn continues_run(&self, next: char) -> bool {
+        if next.is_whitespace() {
+            return true;
+        }
+        // The character the run last grew by: the end when inserting, the front when backspacing
+        let edge = match self {
+            EditKind::InsertChar(c) | EditKind::DeleteChar(c) => Some(*c),
+            EditKind::InsertStr(s) => s.chars().next_back(),
+            EditKind::DeleteStr(s) => s.chars().next(),
+            _ => None,
+        };
+        edge.is_some_and(|prev| CharKind::new(prev) == CharKind::new(next))
+    }
+
     fn invert(&self) -> Self {
         use EditKind::*;
         match self.clone() {
@@ -120,6 +146,47 @@ impl Edit {
     pub fn cursor_after(&self) -> (usize, usize) {
         (self.after.row, self.after.col)
     }
+
+    // Grow this run by `other` when it starts exactly where this one ended
+    fn merge(&mut self, other: &Edit) -> bool {
+        if self.after != other.before {
+            return false;
+        }
+
+        let next = match other.kind {
+            EditKind::InsertChar(c) | EditKind::DeleteChar(c) => c,
+            _ => return false,
+        };
+
+        if !self.kind.continues_run(next) {
+            return false;
+        }
+
+        // Promote the run's first character so it can grow in place
+        let promoted = match (&self.kind, &other.kind) {
+            (EditKind::InsertChar(c), EditKind::InsertChar(_)) => {
+                Some(EditKind::InsertStr(c.to_string()))
+            }
+            (EditKind::DeleteChar(c), EditKind::DeleteChar(_)) => {
+                Some(EditKind::DeleteStr(c.to_string()))
+            }
+            _ => None,
+        };
+
+        if let Some(kind) = promoted {
+            self.kind = kind;
+        }
+
+        match (&mut self.kind, &other.kind) {
+            (EditKind::InsertStr(s), EditKind::InsertChar(c)) => s.push(*c),
+            // Backspace walks the buffer backwards, so the run grows from the front
+            (EditKind::DeleteStr(s), EditKind::DeleteChar(c)) => s.insert(0, *c),
+            _ => return false,
+        }
+
+        self.after = other.after.clone();
+        true
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -127,6 +194,8 @@ pub struct History {
     index: usize,
     max_items: usize,
     edits: VecDeque<Edit>,
+    run_open: bool,
+    last_edit_at: Option<Instant>,
 }
 
 impl History {
@@ -135,11 +204,22 @@ impl History {
             index: 0,
             max_items,
             edits: VecDeque::new(),
+            run_open: false,
+            last_edit_at: None,
         }
     }
 
-    pub fn push(&mut self, edit: Edit) {
+    pub fn push(&mut self, edit: Edit, coalesce: bool, now: Instant) {
         if self.max_items == 0 {
+            return;
+        }
+
+        if coalesce
+            && self.can_extend_run(now)
+            && self.edits.back_mut().is_some_and(|last| last.merge(&edit))
+        {
+            self.run_open = edit.kind.keeps_run_open();
+            self.last_edit_at = Some(now);
             return;
         }
 
@@ -153,13 +233,29 @@ impl History {
         }
 
         self.index += 1;
+        self.run_open = edit.kind.keeps_run_open();
+        self.last_edit_at = Some(now);
         self.edits.push_back(edit);
+    }
+
+    // The newest edit is an open run, nothing has been undone since, and the pause was short enough
+    fn can_extend_run(&self, now: Instant) -> bool {
+        self.run_open
+            && self.index == self.edits.len()
+            && self
+                .last_edit_at
+                .is_some_and(|at| now.duration_since(at) < GROUP_INTERVAL)
+    }
+
+    pub fn break_run(&mut self) {
+        self.run_open = false;
     }
 
     pub fn redo(&mut self, lines: &mut Vec<String>) -> Option<(usize, usize)> {
         if self.index == self.edits.len() {
             return None;
         }
+        self.run_open = false;
         let edit = &self.edits[self.index];
         edit.redo(lines);
         self.index += 1;
@@ -168,6 +264,7 @@ impl History {
 
     pub fn undo(&mut self, lines: &mut Vec<String>) -> Option<(usize, usize)> {
         self.index = self.index.checked_sub(1)?;
+        self.run_open = false;
         let edit = &self.edits[self.index];
         edit.undo(lines);
         Some(edit.cursor_before())
@@ -181,6 +278,63 @@ impl History {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Typing one character at `col`, as TextArea::insert_char builds it
+    fn typed(c: char, col: usize) -> Edit {
+        Edit::new(
+            EditKind::InsertChar(c),
+            Pos::new(0, col, col),
+            Pos::new(0, col + 1, col + 1),
+        )
+    }
+
+    // Instants are passed in rather than read from the clock, so these tests need no sleeps
+    #[test]
+    fn a_short_pause_extends_the_run() {
+        let start = Instant::now();
+        let mut history = History::new(50);
+
+        history.push(typed('a', 0), true, start);
+        history.push(typed('b', 1), true, start + Duration::from_millis(100));
+
+        assert_eq!(history.edits.len(), 1);
+    }
+
+    #[test]
+    fn a_long_pause_ends_the_run() {
+        let start = Instant::now();
+        let mut history = History::new(50);
+
+        history.push(typed('a', 0), true, start);
+        history.push(typed('b', 1), true, start + GROUP_INTERVAL);
+
+        assert_eq!(history.edits.len(), 2);
+    }
+
+    #[test]
+    fn the_pause_is_measured_from_the_last_edit_not_the_run_start() {
+        let start = Instant::now();
+        let mut history = History::new(50);
+
+        // Each gap stays under the interval, so a slow but steady typist keeps one run
+        for (i, c) in "abcd".chars().enumerate() {
+            let at = start + GROUP_INTERVAL / 2 * i as u32;
+            history.push(typed(c, i), true, at);
+        }
+
+        assert_eq!(history.edits.len(), 1);
+    }
+
+    #[test]
+    fn a_long_pause_does_not_split_runs_when_coalescing_is_off() {
+        let start = Instant::now();
+        let mut history = History::new(50);
+
+        history.push(typed('a', 0), false, start);
+        history.push(typed('b', 1), false, start + Duration::from_secs(10));
+
+        assert_eq!(history.edits.len(), 2);
+    }
 
     #[test]
     fn insert_delete_chunk() {

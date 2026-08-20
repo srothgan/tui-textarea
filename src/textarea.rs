@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
 use std::cmp::{self, Ordering};
 use std::fmt;
+use std::time::Instant;
 use unicode_width::UnicodeWidthChar as _;
 
 #[derive(Debug, Clone)]
@@ -206,6 +207,7 @@ pub struct TextArea<'a> {
     tab_len: u8,
     hard_tab_indent: bool,
     history: History,
+    undo_coalescing: bool,
     cursor_line_style: Style,
     line_number_style: Option<Style>,
     pub(crate) viewport: Viewport,
@@ -326,6 +328,7 @@ impl<'a> TextArea<'a> {
             tab_len: 4,
             hard_tab_indent: false,
             history: History::new(50),
+            undo_coalescing: false,
             cursor_line_style: Style::default().add_modifier(Modifier::UNDERLINED),
             line_number_style: None,
             viewport: Viewport::default(),
@@ -866,7 +869,8 @@ impl<'a> TextArea<'a> {
         let DataCursor(row, col) = self.cursor;
         let after = Pos::new(row, col, after_offset);
         let edit = Edit::new(kind, before, after);
-        self.history.push(edit);
+        self.history
+            .push(edit, self.undo_coalescing, Instant::now());
         self.atomic_ranges.clear();
         self.refresh_screen_map();
         self.reset_measure_cache();
@@ -1980,6 +1984,7 @@ impl<'a> TextArea<'a> {
 
     fn move_cursor_with_shift(&mut self, m: CursorMove, shift: bool) {
         if let Some(cursor) = m.next_cursor(self.screen_cursor(), self, &self.viewport) {
+            self.history.break_run(); // Moving the cursor ends the current typing run
             if shift {
                 if self.selection_start.is_none() {
                     self.start_selection();
@@ -2338,6 +2343,47 @@ impl<'a> TextArea<'a> {
     /// Get how many modifications are remembered for undo/redo. The default value is 50.
     pub fn max_histories(&self) -> usize {
         self.history.max_items()
+    }
+
+    /// Set whether consecutive single-character edits are coalesced into one undo step. This is disabled by default, so
+    /// undo removes one character at a time. Enable it to undo a word of typing at a time instead.
+    ///
+    /// A run covers characters of one class (word, punctuation or whitespace), so undo stops on the same boundaries as
+    /// [`TextArea::delete_word`] and [`CursorMove::WordForward`]. Trailing whitespace joins the run it ends rather than
+    /// starting a new one, and consecutive spaces or tabs stay in that same run. A pause of 500 milliseconds or more
+    /// also ends a run, so text typed in separate sittings stays separate. A newline, cursor move, paste, range
+    /// deletion or switch between inserting and deleting ends a run as well.
+    /// ```
+    /// use tui_textarea::TextArea;
+    ///
+    /// let mut textarea = TextArea::default();
+    /// textarea.set_undo_coalescing(true);
+    /// for c in "hello world".chars() {
+    ///     textarea.insert_char(c);
+    /// }
+    /// textarea.undo();
+    /// assert_eq!(textarea.lines(), ["hello "]);
+    /// textarea.undo();
+    /// assert_eq!(textarea.lines(), [""]);
+    ///
+    /// // Punctuation is a separate class, so code undoes in meaningful pieces
+    /// let mut textarea = TextArea::default();
+    /// textarea.set_undo_coalescing(true);
+    /// for c in "foo();".chars() {
+    ///     textarea.insert_char(c);
+    /// }
+    /// textarea.undo();
+    /// assert_eq!(textarea.lines(), ["foo"]);
+    /// ```
+    pub fn set_undo_coalescing(&mut self, coalesce: bool) {
+        self.undo_coalescing = coalesce;
+        self.history.break_run();
+    }
+
+    /// Get whether consecutive single-character edits are coalesced into one undo step. The default
+    /// value is `false`.
+    pub fn undo_coalescing(&self) -> bool {
+        self.undo_coalescing
     }
 
     /// Set the style of line at cursor. By default, the cursor line is styled with underline. To stop styling the
@@ -3188,11 +3234,15 @@ mod tests {
     #[test]
     fn undo_clamps_invalid_cursor_from_history() {
         let mut textarea = TextArea::default();
-        textarea.history.push(Edit::new(
-            EditKind::DeleteStr(String::new()),
-            Pos::new(1, 10, 0),
-            Pos::new(0, 0, 0),
-        ));
+        textarea.history.push(
+            Edit::new(
+                EditKind::DeleteStr(String::new()),
+                Pos::new(1, 10, 0),
+                Pos::new(0, 0, 0),
+            ),
+            false,
+            Instant::now(),
+        );
 
         assert!(textarea.undo());
         assert_eq!(textarea.lines(), [""]);
@@ -3202,11 +3252,15 @@ mod tests {
     #[test]
     fn redo_clamps_invalid_cursor_from_history() {
         let mut textarea = TextArea::default();
-        textarea.history.push(Edit::new(
-            EditKind::InsertStr(String::new()),
-            Pos::new(0, 0, 0),
-            Pos::new(1, 10, 0),
-        ));
+        textarea.history.push(
+            Edit::new(
+                EditKind::InsertStr(String::new()),
+                Pos::new(0, 0, 0),
+                Pos::new(1, 10, 0),
+            ),
+            false,
+            Instant::now(),
+        );
 
         assert!(textarea.undo());
         assert!(textarea.redo());

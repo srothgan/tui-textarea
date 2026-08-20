@@ -7,7 +7,7 @@ pub fn num_digits(i: usize) -> u8 {
     if i == 0 { 1 } else { i.ilog10() as u8 + 1 }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pos {
     pub row: usize,
     pub col: usize,
