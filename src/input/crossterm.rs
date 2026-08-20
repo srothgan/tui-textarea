@@ -49,6 +49,16 @@ impl From<KeyEvent> for Input {
 
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let alt = key.modifiers.contains(KeyModifiers::ALT);
+
+        if key.code == KeyCode::BackTab {
+            return Self {
+                key: Key::Tab,
+                ctrl,
+                alt,
+                shift: true,
+            };
+        }
+
         let shift = key.modifiers.contains(KeyModifiers::SHIFT);
         let key = Key::from(key.code);
 
@@ -134,6 +144,10 @@ mod tests {
             (
                 key_event(KeyCode::Home, KeyModifiers::ALT),
                 input(Key::Home, false, true, false),
+            ),
+            (
+                key_event(KeyCode::BackTab, KeyModifiers::CONTROL | KeyModifiers::ALT),
+                input(Key::Tab, true, true, true),
             ),
             (
                 key_event(

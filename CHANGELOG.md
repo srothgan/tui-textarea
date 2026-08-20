@@ -6,6 +6,10 @@
 
 - **Undo coalescing** (opt-in): `TextArea::set_undo_coalescing(true)` collapses consecutive `insert_char`/`delete_char` calls into a single undo step, so undo removes a word of typing rather than one character. A run covers one character class, matching the boundaries already used by `delete_word` and `CursorMove::WordForward`. Runs are also broken by a pause of 500ms or more, newlines, cursor movement, pastes, range deletions and switching between inserting and deleting. Defaults to `false`, so undo behaviour is unchanged on upgrade.
 
+### Bug Fixes
+
+- **BackTab input**: Convert crossterm `BackTab` events into `Key::Tab` input with `shift: true` while preserving Ctrl and Alt modifiers.
+
 ## [0.12.1] - 2026-07-10 [Changes][v0.12.1]
 
 ### Features
