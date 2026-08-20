@@ -7,7 +7,8 @@ use crossterm::terminal::{
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Borders};
 use std::io;
 use tui_textarea::{Input, Key, TextArea};
@@ -27,20 +28,38 @@ fn main() -> io::Result<()> {
         Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::LightBlue))
-            .title("Crossterm Popup Example"),
+            .title("Styled Placeholder"),
     );
 
-    let area = Rect {
-        width: 40,
-        height: 5,
-        x: 5,
-        y: 5,
-    };
     textarea.set_style(Style::default().fg(Color::Yellow));
-    textarea.set_placeholder_style(Style::default());
-    textarea.set_placeholder_text("prompt message");
+    textarea.set_styled_placeholder(
+        Text::from_iter([
+            Line::from(vec![
+                Span::styled(
+                    "Required: ",
+                    Style::default()
+                        .fg(Color::LightRed)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("enter your message", Style::default().fg(Color::DarkGray)),
+            ]),
+            Line::styled(
+                "The placeholder can contain multiple styled lines.",
+                Style::default().fg(Color::LightBlue),
+            ),
+        ])
+        .style(Style::default().fg(Color::DarkGray)),
+    );
     loop {
         term.draw(|f| {
+            let width = 58.min(f.area().width);
+            let height = 5.min(f.area().height);
+            let area = Rect {
+                width,
+                height,
+                x: f.area().x + f.area().width.saturating_sub(width) / 2,
+                y: f.area().y + f.area().height.saturating_sub(height) / 2,
+            };
             f.render_widget(&textarea, area);
         })?;
         match crossterm::event::read()?.into() {
