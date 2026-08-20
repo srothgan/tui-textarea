@@ -6,7 +6,11 @@ tui-textarea-2
 [![Rust Clippy][clippy-badge]][clippy]
 [![coverage][codecov-badge]][codecov]
 
+[API documentation][doc] · [Features](#features) · [Installation](#installation) · [Examples](#examples) · [Minimal usage](#minimal-usage) · [Basic usage](#basic-usage) · [Advanced usage](#advanced-usage) · [Contributing](#contributing-to-tui-textarea-2)
+
 [tui-textarea-2][crate] is a simple yet powerful text editor widget like `<textarea>` in HTML for [ratatui][]. A multi-line text editor can be easily added to your TUI application.
+
+For the complete API reference, see the [tui-textarea-2 documentation on docs.rs][doc].
 
 > Maintained fork notice: this repository is maintained under `srothgan/tui-textarea` to keep compatibility updates moving (including ratatui 0.30+ support and maintenance fixes).
 
@@ -28,7 +32,45 @@ tui-textarea-2
 - Multiple textarea widgets on the same screen
 - Backend-agnostic Ratatui support for [crossterm][], [termion][], [termwiz][], and custom backends
 
-[Documentation][doc]
+## Installation
+
+Add `tui-textarea` crate to dependencies in your `Cargo.toml`. This enables crossterm backend support by default.
+
+```toml
+[dependencies]
+ratatui = "*"
+tui-textarea = { package = "tui-textarea-2", version = "*" }
+```
+
+If you need text search with regular expressions, enable the `search` feature. It adds [regex crate][regex] as dependency.
+
+```toml
+[dependencies]
+ratatui = "*"
+tui-textarea = { package = "tui-textarea-2", version = "*", features = ["search"] }
+```
+
+If you're using ratatui with [termion][] or [termwiz][], enable the `termion` or `termwiz` feature instead of the `crossterm` feature.
+
+```toml
+[dependencies]
+
+# For termion
+ratatui = { version = "*", default-features = false, features = ["termion"] }
+tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["termion"] }
+
+# For termwiz
+ratatui = { version = "*", default-features = false, features = ["termwiz"] }
+tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["termwiz"] }
+```
+
+The following table shows feature names corresponding to the supported ratatui backend integrations.
+
+|         | crossterm                        | termion         | termwiz   | Your own backend   |
+|---------|----------------------------------|-----------------|-----------|--------------------|
+| ratatui | `crossterm` (enabled by default) | `termion`       | `termwiz` | `no-backend`       |
+
+In addition to the dependencies above, you also need to install [crossterm][], [termion][], or [termwiz][] to initialize your application and receive key inputs.
 
 ## Examples
 
@@ -133,48 +175,6 @@ cargo run --example termwiz --no-default-features --features=termwiz
 ```
 
 Minimal usage with [termwiz][] support.
-
-## Installation
-
-Add `tui-textarea` crate to dependencies in your `Cargo.toml`. This enables crossterm backend support by default.
-
-```toml
-[dependencies]
-ratatui = "*"
-tui-textarea = { package = "tui-textarea-2", version = "*" }
-```
-
-If you need text search with regular expressions, enable `search` feature. It adds [regex crate][regex] as dependency.
-
-```toml
-[dependencies]
-ratatui = "*"
-tui-textarea = { package = "tui-textarea-2", version = "*", features = ["search"] }
-```
-
-If you're using ratatui with [termion][] or [termwiz][], enable the `termion` or `termwiz` feature instead of
-`crossterm` feature.
-
-```toml
-[dependencies]
-
-# For termion
-ratatui = { version = "*", default-features = false, features = ["termion"] }
-tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["termion"] }
-
-# For termwiz
-ratatui = { version = "*", default-features = false, features = ["termwiz"] }
-tui-textarea = { package = "tui-textarea-2", version = "*", default-features = false, features = ["termwiz"] }
-```
-
-The following table shows feature names corresponding to the supported ratatui backend integrations.
-
-|         | crossterm                        | termion         | termwiz   | Your own backend   |
-|---------|----------------------------------|-----------------|-----------|--------------------|
-| ratatui | `crossterm` (enabled by default) | `termion`       | `termwiz` | `no-backend`       |
-
-In addition to above dependencies, you also need to install [crossterm][] or [termion][] or [termwiz][] to initialize
-your application and to receive key inputs.
 
 ## Minimal Usage
 
