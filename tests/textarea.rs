@@ -1926,6 +1926,175 @@ fn rendered_cursor_position_handles_tabs() {
 }
 
 #[test]
+fn cursor_at_position_requires_a_rendered_inner_area() {
+    let mut textarea = TextArea::from(["abc"]);
+    assert_eq!(textarea.cursor_at_position(Position::new(0, 0)), None);
+
+    textarea.set_block(Block::default().borders(Borders::ALL));
+    render_textarea(&textarea, Rect::new(10, 5, 8, 3));
+
+    assert_eq!(textarea.cursor_at_position(Position::new(10, 6)), None);
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(11, 6)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(13, 6)),
+        Some((0, 2))
+    );
+    assert_eq!(textarea.cursor_at_position(Position::new(11, 7)), None);
+}
+
+#[test]
+fn cursor_at_position_accounts_for_line_numbers() {
+    let lines = (0..10).map(|_| "abc").collect::<Vec<_>>();
+    let mut textarea = TextArea::from(lines);
+    textarea.set_line_number_style(Style::default());
+    render_textarea(&textarea, Rect::new(0, 0, 10, 3));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(0, 0)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(3, 0)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(5, 0)),
+        Some((0, 1))
+    );
+}
+
+#[test]
+fn cursor_at_position_accounts_for_vertical_and_horizontal_scroll() {
+    let mut textarea = TextArea::from((0..10).map(|row| format!("row{row}abcdefgh")));
+    textarea.move_cursor(CursorMove::Jump(9, 11));
+    render_textarea(&textarea, Rect::new(4, 3, 5, 3));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(4, 3)),
+        Some((7, 7))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(8, 5)),
+        Some((9, 11))
+    );
+}
+
+#[test]
+fn cursor_at_position_composes_horizontal_scroll_and_line_numbers() {
+    let mut textarea = TextArea::from((0..10).map(|_| "abcdefghij"));
+    textarea.set_line_number_style(Style::default());
+    textarea.move_cursor(CursorMove::Jump(0, 10));
+    render_textarea(&textarea, Rect::new(0, 0, 6, 2));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(0, 0)),
+        Some((0, 5))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(5, 0)),
+        Some((0, 10))
+    );
+}
+
+#[test]
+fn cursor_at_position_follows_wrapped_rows_and_clamps_each_row() {
+    let mut textarea = TextArea::from(["abcdefghij"]);
+    textarea.set_wrap_mode(WrapMode::WordOrGlyph);
+    render_textarea(&textarea, Rect::new(2, 4, 5, 2));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(4, 5)),
+        Some((0, 7))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(6, 4)),
+        Some((0, 4))
+    );
+}
+
+#[test]
+fn cursor_at_position_handles_tabs_and_wide_unicode() {
+    let textarea = TextArea::from(["a中\tb"]);
+    render_textarea(&textarea, Rect::new(0, 0, 8, 1));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(1, 0)),
+        Some((0, 1))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(2, 0)),
+        Some((0, 1))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(3, 0)),
+        Some((0, 2))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(4, 0)),
+        Some((0, 3))
+    );
+}
+
+#[test]
+fn cursor_at_position_accounts_for_center_and_right_alignment() {
+    let mut textarea = TextArea::from(["abc"]);
+    textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+    textarea.set_alignment(Alignment::Center);
+    render_textarea(&textarea, Rect::new(0, 0, 9, 1));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(2, 0)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(4, 0)),
+        Some((0, 1))
+    );
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position::new(3, 0))
+    );
+
+    textarea.move_cursor(CursorMove::Jump(0, 1));
+    textarea.set_alignment(Alignment::Right);
+    render_textarea(&textarea, Rect::new(0, 0, 9, 1));
+
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(5, 0)),
+        Some((0, 0))
+    );
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(7, 0)),
+        Some((0, 1))
+    );
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position::new(7, 0))
+    );
+}
+
+#[test]
+fn cursor_at_position_clamps_blank_space_and_placeholder() {
+    let textarea = TextArea::from(["ab", "c"]);
+    render_textarea(&textarea, Rect::new(0, 0, 8, 4));
+    assert_eq!(
+        textarea.cursor_at_position(Position::new(7, 3)),
+        Some((1, 1))
+    );
+
+    let mut placeholder = TextArea::default();
+    placeholder.set_placeholder_text("Type here");
+    render_textarea(&placeholder, Rect::new(0, 0, 8, 2));
+    assert_eq!(
+        placeholder.cursor_at_position(Position::new(7, 1)),
+        Some((0, 0))
+    );
+}
+
+#[test]
 fn test_set_lines_clamps_cursor_and_clears_selection_and_history() {
     let mut t = TextArea::from(["hello", "world"]);
     assert!(t.insert_str("!"));
