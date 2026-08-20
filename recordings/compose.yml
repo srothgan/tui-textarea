@@ -1,0 +1,9 @@
+services:
+  recordings:
+    build:
+      context: ..
+      dockerfile: recordings/Dockerfile
+    image: tui-textarea-recordings:local
+    working_dir: /vhs
+    volumes:
+      - ..:/vhs
