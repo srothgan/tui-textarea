@@ -6,7 +6,14 @@ tui-textarea-2
 [![Rust Clippy][clippy-badge]][clippy]
 [![coverage][codecov-badge]][codecov]
 
-[API documentation][doc] · [Features](#features) · [Installation](#installation) · [Examples](#examples) · [Minimal usage](#minimal-usage) · [Basic usage](#basic-usage) · [Advanced usage](#advanced-usage) · [Contributing](#contributing-to-tui-textarea-2)
+- [API documentation][doc]
+- [Features](#features)
+- [Installation](#installation)
+- [Examples](#examples)
+- [Minimal usage](#minimal-usage)
+- [Basic usage](#basic-usage)
+- [Advanced usage](#advanced-usage)
+- [Contributing](#contributing-to-tui-textarea-2)
 
 [tui-textarea-2][crate] is a simple yet powerful text editor widget like `<textarea>` in HTML for [ratatui][]. A multi-line text editor can be easily added to your TUI application.
 
@@ -76,9 +83,7 @@ In addition to the dependencies above, you also need to install [crossterm][], [
 
 Running `cargo run --example` in this repository can demonstrate usage of tui-textarea.
 
-For consistent GIF capture across the crossterm examples, set `TUI_TEXTAREA_RECORDING=1` for the default `120x30`
-terminal size or override it with `TUI_TEXTAREA_RECORDING_SIZE=<cols>x<rows>`. See
-[`examples/RECORDING.md`](./examples/RECORDING.md) for the recording workflow.
+For consistent GIF capture across the crossterm examples, use the [ScreenToGif recording workflow](./examples/RECORDING.md), which starts each example at the default `120x30` terminal size through `scripts/run-example-recording.ps1`.
 
 ### [`minimal`](./examples/minimal.rs)
 
@@ -126,9 +131,7 @@ Two split textareas in a screen and switch them. An example for multiple textare
 cargo run --example variable
 ```
 
-Simple textarea with variable height driven by measured preferred rows.
-
-This example now sizes itself from `textarea.measure(width).preferred_rows`.
+Auto-sized textarea driven by `textarea.measure(width).preferred_rows` and bounded with minimum and maximum row settings.
 
 ### [`vim`](./examples/vim.rs)
 
@@ -146,7 +149,7 @@ Vim-like modal text editor. Vim emulation is implemented as a state machine.
 cargo run --example popup_placeholder
 ```
 
-Popup textarea with a placeholder text.
+Popup textarea with a multiline placeholder whose spans use independent styles.
 
 <img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/placepop.gif" width=446 height=220 alt="popup textarea with placeholder example">
 
@@ -159,6 +162,22 @@ cargo run --example password
 Password input form with masking text with ●.
 
 <img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/password.gif" width=589 height=92 alt="password example">
+
+### [`wrap`](./examples/wrap.rs)
+
+```sh
+cargo run --example wrap
+```
+
+Interactive comparison of word, glyph, and word-or-glyph soft wrapping with Unicode text, tabs, long tokens, and visual-row cursor navigation.
+
+### [`undo_coalescing`](./examples/undo_coalescing.rs)
+
+```sh
+cargo run --example undo_coalescing
+```
+
+Time-based undo grouping that starts a new undo step after a pause of at least 500 milliseconds.
 
 ### [`termion`](./examples/termion.rs)
 
