@@ -93,7 +93,7 @@ cargo run --example minimal
 
 Minimal usage with [crossterm][] support.
 
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/minimal.gif" width=539 height=172 alt="minimal example">
+<img src="./assets/minimal.gif" width=539 height=172 alt="minimal example">
 
 ### [`editor`](./examples/editor.rs)
 
@@ -103,7 +103,7 @@ cargo run --example editor --features search file.txt
 
 Simple text editor to edit multiple files.
 
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/editor.gif" width=560 height=236 alt="editor example">
+<img src="./assets/editor.gif" width=560 height=236 alt="editor example">
 
 ### [`single_line`](./examples/single_line.rs)
 
@@ -113,7 +113,7 @@ cargo run --example single_line
 
 Single-line input form with float number validation.
 
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/single_line.gif" width=539 height=92 alt="single line example">
+<img src="./assets/single_line.gif" width=539 height=92 alt="single line example">
 
 ### [`split`](./examples/split.rs)
 
@@ -123,7 +123,7 @@ cargo run --example split
 
 Two split textareas in a screen and switch them. An example for multiple textarea instances.
 
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/split.gif" width=539 height=124 alt="multiple textareas example">
+<img src="./assets/split.gif" width=539 height=124 alt="multiple textareas example">
 
 ### [`variable`](./examples/variable.rs)
 
@@ -141,7 +141,7 @@ cargo run --example vim
 
 Vim-like modal text editor. Vim emulation is implemented as a state machine.
 
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/vim.gif" width=590 height=156 alt="Vim emulation example">
+<img src="./assets/vim.gif" width=590 height=156 alt="Vim emulation example">
 
 ### [`popup_placeholder`](./examples/popup_placeholder.rs)
 
@@ -151,7 +151,7 @@ cargo run --example popup_placeholder
 
 Popup textarea with a multiline placeholder whose spans use independent styles.
 
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/placepop.gif" width=446 height=220 alt="popup textarea with placeholder example">
+<img src="./assets/popup_placeholder.gif" width=446 height=220 alt="popup textarea with placeholder example">
 
 ### [`password`](./examples/password.rs)
 
@@ -161,7 +161,7 @@ cargo run --example password
 
 Password input form with masking text with ●.
 
-<img src="https://raw.githubusercontent.com/rhysd/ss/master/tui-textarea/password.gif" width=589 height=92 alt="password example">
+<img src="./assets/password.gif" width=589 height=92 alt="password example">
 
 ### [`wrap`](./examples/wrap.rs)
 

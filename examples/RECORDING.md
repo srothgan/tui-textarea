@@ -11,7 +11,7 @@ Create a reusable ScreenToGif recorder preset with these settings:
 - Record at 15 frames per second.
 - Hide the mouse pointer unless the example demonstrates mouse interaction.
 - Trim startup, shutdown, and long idle frames before exporting.
-- Export an optimized looping GIF under `.github/assets/examples/<example-name>.gif`.
+- Export an optimized looping GIF under `assets/<example_name>.gif`.
 
 Use ScreenToGif's window selection or snap-to-window support after the script resizes the terminal. Keep the recorder region unchanged between examples so the resulting GIFs align in the README.
 
@@ -67,6 +67,6 @@ Before replacing a README recording, verify that:
 - Keystrokes are deliberate and the demonstrated behavior is understandable without narration.
 - Text remains legible after GitHub renders the image at the README width.
 - The optimized file is small enough to load quickly and contains no unrelated desktop content.
-- The filename matches the Rust example name with underscores changed to hyphens only when the README already uses that convention.
+- The filename matches the Rust example name exactly, for example `popup_placeholder.gif`.
 
 Commit the Rust example and its recording separately so code review remains clear and a GIF can be regenerated without obscuring source changes.
