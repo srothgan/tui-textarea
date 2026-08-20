@@ -83,7 +83,7 @@ In addition to the dependencies above, you also need to install [crossterm][], [
 
 Running `cargo run --example` in this repository can demonstrate usage of tui-textarea.
 
-For consistent GIF capture across the crossterm examples, use the [ScreenToGif recording workflow](./examples/RECORDING.md), which starts each example at the default `120x30` terminal size through `scripts/run-example-recording.ps1`.
+The repository includes a [Docker-based recording workflow](./examples/RECORDING.md) that rebuilds every crossterm example GIF from scripted terminal interactions.
 
 ### [`minimal`](./examples/minimal.rs)
 
@@ -93,7 +93,7 @@ cargo run --example minimal
 
 Minimal usage with [crossterm][] support.
 
-<img src="./assets/minimal.gif" width=539 height=172 alt="minimal example">
+<img src="./assets/minimal.gif" width=600 alt="minimal example">
 
 ### [`editor`](./examples/editor.rs)
 
@@ -103,7 +103,7 @@ cargo run --example editor --features search file.txt
 
 Simple text editor to edit multiple files.
 
-<img src="./assets/editor.gif" width=560 height=236 alt="editor example">
+<img src="./assets/editor.gif" width=600 alt="editor example">
 
 ### [`single_line`](./examples/single_line.rs)
 
@@ -113,7 +113,7 @@ cargo run --example single_line
 
 Single-line input form with float number validation.
 
-<img src="./assets/single_line.gif" width=539 height=92 alt="single line example">
+<img src="./assets/single_line.gif" width=600 alt="single line example">
 
 ### [`split`](./examples/split.rs)
 
@@ -123,7 +123,7 @@ cargo run --example split
 
 Two split textareas in a screen and switch them. An example for multiple textarea instances.
 
-<img src="./assets/split.gif" width=539 height=124 alt="multiple textareas example">
+<img src="./assets/split.gif" width=600 alt="multiple textareas example">
 
 ### [`variable`](./examples/variable.rs)
 
@@ -133,6 +133,8 @@ cargo run --example variable
 
 Auto-sized textarea driven by `textarea.measure(width).preferred_rows` and bounded with minimum and maximum row settings.
 
+<img src="./assets/variable.gif" width=600 alt="auto-sized textarea example">
+
 ### [`vim`](./examples/vim.rs)
 
 ```sh
@@ -141,7 +143,7 @@ cargo run --example vim
 
 Vim-like modal text editor. Vim emulation is implemented as a state machine.
 
-<img src="./assets/vim.gif" width=590 height=156 alt="Vim emulation example">
+<img src="./assets/vim.gif" width=600 alt="Vim emulation example">
 
 ### [`popup_placeholder`](./examples/popup_placeholder.rs)
 
@@ -151,7 +153,7 @@ cargo run --example popup_placeholder
 
 Popup textarea with a multiline placeholder whose spans use independent styles.
 
-<img src="./assets/popup_placeholder.gif" width=446 height=220 alt="popup textarea with placeholder example">
+<img src="./assets/popup_placeholder.gif" width=600 alt="popup textarea with styled placeholder example">
 
 ### [`password`](./examples/password.rs)
 
@@ -161,7 +163,7 @@ cargo run --example password
 
 Password input form with masking text with ●.
 
-<img src="./assets/password.gif" width=589 height=92 alt="password example">
+<img src="./assets/password.gif" width=600 alt="password example">
 
 ### [`wrap`](./examples/wrap.rs)
 
@@ -171,6 +173,8 @@ cargo run --example wrap
 
 Interactive comparison of word, glyph, and word-or-glyph soft wrapping with Unicode text, tabs, long tokens, and visual-row cursor navigation.
 
+<img src="./assets/wrap.gif" width=600 alt="soft wrapping example">
+
 ### [`undo_coalescing`](./examples/undo_coalescing.rs)
 
 ```sh
@@ -178,6 +182,8 @@ cargo run --example undo_coalescing
 ```
 
 Time-based undo grouping that starts a new undo step after a pause of at least 500 milliseconds.
+
+<img src="./assets/undo_coalescing.gif" width=600 alt="timed undo coalescing example">
 
 ### [`termion`](./examples/termion.rs)
 
