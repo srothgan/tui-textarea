@@ -36,7 +36,7 @@ fn main() -> io::Result<()> {
 
     let mut textarea = TextArea::default();
     textarea.set_undo_coalescing(true);
-    textarea.set_placeholder_text("Type a word, pause, then type another word");
+    textarea.set_placeholder_text("Try: type \"hello \", pause, then type \"world\"");
     textarea.set_placeholder_style(Style::default().fg(Color::DarkGray));
     textarea.set_block(
         Block::default()
@@ -56,7 +56,7 @@ fn main() -> io::Result<()> {
                         Style::default().fg(Color::LightCyan),
                     ),
                     Line::styled(
-                        "Pause for at least 500 ms to start a new group, then press Ctrl+Z once per group.",
+                        "Pause for at least 500 ms to start a new group, then press Ctrl+U once per group.",
                         Style::default().fg(Color::DarkGray),
                     ),
                     Line::styled("Esc exits.", Style::default().fg(Color::DarkGray)),

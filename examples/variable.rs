@@ -58,7 +58,7 @@ fn main() -> io::Result<()> {
                         Span::raw(format!("  (min: {}, max: {})", measure.min_rows, measure.max_rows)),
                     ]),
                     Line::styled(
-                        "Type lines to grow the textarea; Backspace or Ctrl+Z to shrink it; Esc exits.",
+                        "Type lines to grow the textarea; Backspace or Ctrl+U to shrink it; Esc exits.",
                         Style::default().fg(Color::DarkGray),
                     ),
                 ]),
