@@ -2,6 +2,18 @@
 
 <!-- ## [Unreleased] -->
 
+## [0.13.2] - 2026-08-23 [Changes][v0.13.2]
+
+### Bug Fixes
+
+- **Cursor visibility** (#38, @srothgan): Reserve a caret cell in wrapped layouts.
+- **Word wrapping** (#38, @srothgan): Split oversized words at grapheme boundaries and keep `WordOrGlyph` compatible with `Word`.
+- **Whitespace wrapping** (#38, @srothgan): Wrap whitespace runs one grapheme at a time to keep cursor placement stable.
+
+### Architecture
+
+- **Shared layout metrics** (#38, @srothgan): Use one width calculation for measurement, rendering, cursor mapping, and hit testing.
+
 ## [0.13.0] - 2026-08-20 [Changes][v0.13.0]
 
 ### Features
@@ -515,6 +527,7 @@ First release :tada:
 - docs.rs: https://docs.rs/tui-textarea/latest/tui_textarea/
 
 
+[v0.13.2]: https://github.com/srothgan/tui-textarea/compare/v0.13.0...v0.13.2
 [v0.13.0]: https://github.com/srothgan/tui-textarea/compare/v0.12.1...v0.13.0
 [v0.12.1]: https://github.com/srothgan/tui-textarea/compare/v0.12.0...v0.12.1
 [v0.12.0]: https://github.com/srothgan/tui-textarea/compare/v0.11.0...v0.12.0
