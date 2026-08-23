@@ -1925,6 +1925,24 @@ fn rendered_cursor_position_reserves_wrapped_caret_when_right_aligned() {
 }
 
 #[test]
+fn rendered_cursor_position_does_not_move_a_whitespace_run_to_the_next_row() {
+    for mode in [WrapMode::Word, WrapMode::WordOrGlyph] {
+        let mut textarea = TextArea::from(["abcd    "]);
+        textarea.set_wrap_mode(mode);
+        textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+        textarea.move_cursor(CursorMove::End);
+
+        render_textarea(&textarea, Rect::new(0, 0, 7, 2));
+
+        assert_eq!(
+            textarea.rendered_cursor_position(),
+            Some(Position { x: 2, y: 1 }),
+            "{mode:?}"
+        );
+    }
+}
+
+#[test]
 fn rendered_cursor_position_returns_none_for_empty_area() {
     let textarea = TextArea::default();
 
