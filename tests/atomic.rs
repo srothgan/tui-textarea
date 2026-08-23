@@ -241,7 +241,7 @@ fn wrapped_vertical_movement_normalizes_atom_interiors() {
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
     render(&textarea, 5, 4);
     textarea.set_atomic_ranges([atom(6, 8)]);
-    textarea.move_cursor(CursorMove::Jump(0, 2));
+    textarea.move_cursor(CursorMove::Jump(0, 3));
     textarea.move_cursor(CursorMove::Down);
     assert_eq!(textarea.cursor(), (0, 8));
 

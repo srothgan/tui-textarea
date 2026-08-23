@@ -12,11 +12,13 @@ use unicode_width::UnicodeWidthChar;
 pub enum WrapMode {
     /// Disable soft wrapping and keep horizontal scrolling behavior.
     None,
-    /// Wrap only at word boundaries. Words wider than viewport are not split.
+    /// Prefer word boundaries and split oversized words at grapheme boundaries.
     Word,
     /// Wrap at grapheme boundaries.
     Glyph,
-    /// Wrap at word boundaries, and fall back to grapheme wrapping for long words.
+    /// Behave like [`Word`](Self::Word).
+    ///
+    /// This compatibility variant retains the original name for existing source code and serialized values. Both word modes guarantee that oversized words are split at grapheme boundaries instead of being clipped.
     WordOrGlyph,
 }
 
@@ -35,16 +37,6 @@ pub(crate) struct WrappedLine {
 struct Chunk {
     start: usize,
     end: usize,
-}
-
-pub(crate) fn effective_wrap_width(total_width: u16, line_number_len: Option<u8>) -> usize {
-    let total_width = total_width as usize;
-    let reserved = line_number_len.map(|len| len as usize + 2).unwrap_or(0);
-    if total_width > reserved {
-        total_width - reserved
-    } else {
-        1
-    }
 }
 
 pub(crate) fn wrapped_rows(
@@ -94,8 +86,7 @@ pub(crate) fn line_ranges(
             split_range_by_grapheme_width(line, 0, line.len(), width, tab_len, &mut chunks);
             chunks
         }
-        WrapMode::Word => wrap_word_chunks(line, width, tab_len, false),
-        WrapMode::WordOrGlyph => wrap_word_chunks(line, width, tab_len, true),
+        WrapMode::Word | WrapMode::WordOrGlyph => wrap_word_chunks(line, width, tab_len),
     };
 
     if out.is_empty() {
@@ -104,12 +95,7 @@ pub(crate) fn line_ranges(
     out
 }
 
-fn wrap_word_chunks(
-    line: &str,
-    width: usize,
-    tab_len: u8,
-    fallback_to_glyph: bool,
-) -> Vec<(usize, usize)> {
+fn wrap_word_chunks(line: &str, width: usize, tab_len: u8) -> Vec<(usize, usize)> {
     let chunks: Vec<_> = UnicodeSegmentation::split_word_bound_indices(line)
         .map(|(start, text)| Chunk {
             start,
@@ -134,7 +120,12 @@ fn wrap_word_chunks(
         }
 
         let chunk_width = display_width_from(chunk_text(line, chunk), seg_width, tab_len);
-        if seg_width + chunk_width <= width {
+        // A trailing separator may occupy the reserved caret cell because the cursor after it belongs to the following visual row. This preserves natural word wrapping without making an end-of-line caret overflow the widget.
+        let uses_reserved_cell = i + 1 < chunks.len()
+            && seg_end > seg_start
+            && chunk_text(line, chunk).chars().all(char::is_whitespace)
+            && seg_width + chunk_width == width + 1;
+        if seg_width + chunk_width <= width || uses_reserved_cell {
             seg_end = chunk.end;
             seg_width += chunk_width;
             i += 1;
@@ -148,11 +139,7 @@ fn wrap_word_chunks(
             continue;
         }
 
-        if fallback_to_glyph {
-            split_range_by_grapheme_width(line, chunk.start, chunk.end, width, tab_len, &mut out);
-        } else {
-            out.push((chunk.start, chunk.end));
-        }
+        split_range_by_grapheme_width(line, chunk.start, chunk.end, width, tab_len, &mut out);
 
         i += 1;
         seg_start = chunk.end;
@@ -248,15 +235,22 @@ mod tests {
     }
 
     #[test]
-    fn word_wrap_keeps_long_word() {
+    fn word_wrap_splits_long_word() {
         let have = segments("helloworld", WrapMode::Word, 4);
-        assert_eq!(have, vec!["helloworld"]);
+        assert_eq!(have, vec!["hell", "owor", "ld"]);
     }
 
     #[test]
     fn word_or_glyph_wrap_splits_long_word() {
         let have = segments("helloworld", WrapMode::WordOrGlyph, 4);
         assert_eq!(have, vec!["hell", "owor", "ld"]);
+    }
+
+    #[test]
+    fn word_modes_have_compatible_wrapping() {
+        let word = segments("hello supercalifragilistic world", WrapMode::Word, 8);
+        let compatibility = segments("hello supercalifragilistic world", WrapMode::WordOrGlyph, 8);
+        assert_eq!(word, compatibility);
     }
 
     #[test]

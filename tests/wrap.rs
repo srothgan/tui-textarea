@@ -59,15 +59,15 @@ fn word_or_glyph_mode_soft_wraps() {
     let mut textarea = TextArea::from(["abcdef"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
     let lines = render_lines(&textarea, 5, 2);
-    assert_eq!(lines, vec!["abcde".to_string(), "f    ".to_string()]);
+    assert_eq!(lines, vec!["abcd ".to_string(), "ef   ".to_string()]);
 }
 
 #[test]
-fn word_mode_does_not_split_long_word() {
+fn word_mode_splits_oversized_word_to_keep_all_text_visible() {
     let mut textarea = TextArea::from(["abcdefgh"]);
     textarea.set_wrap_mode(WrapMode::Word);
     let lines = render_lines(&textarea, 5, 2);
-    assert_eq!(lines, vec!["abcde".to_string(), "     ".to_string()]);
+    assert_eq!(lines, vec!["abcd ".to_string(), "efgh ".to_string()]);
 }
 
 #[test]
@@ -124,47 +124,40 @@ fn word_mode_long_paragraph_wraps_by_words() {
 fn glyph_mode_splits_long_token() {
     let mut textarea = TextArea::from(["0123456789abcdefghijklmnopqrstuvwxyz"]);
     textarea.set_wrap_mode(WrapMode::Glyph);
-    let lines = render_lines(&textarea, 10, 4);
+    let lines = render_lines(&textarea, 11, 4);
     assert_eq!(
         lines,
         vec![
-            "0123456789".to_string(),
-            "abcdefghij".to_string(),
-            "klmnopqrst".to_string(),
-            "uvwxyz    ".to_string(),
+            "0123456789 ".to_string(),
+            "abcdefghij ".to_string(),
+            "klmnopqrst ".to_string(),
+            "uvwxyz     ".to_string(),
         ]
     );
 }
 
 #[test]
-fn word_and_word_or_glyph_differ_for_long_words() {
+fn word_and_word_or_glyph_are_compatible_for_long_words() {
     let text = "alpha supercalifragilisticexpialidocious omega";
 
     let mut word = TextArea::from([text]);
     word.set_wrap_mode(WrapMode::Word);
-    let word_lines = render_lines(&word, 10, 4);
+    let word_lines = render_lines(&word, 10, 7);
+
+    let mut word_or_glyph = TextArea::from([text]);
+    word_or_glyph.set_wrap_mode(WrapMode::WordOrGlyph);
+    let word_or_glyph_lines = render_lines(&word_or_glyph, 10, 7);
+    assert_eq!(word_lines, word_or_glyph_lines);
     assert_eq!(
         word_lines,
         vec![
             "alpha     ".to_string(),
-            "supercalif".to_string(),
+            "supercali ".to_string(),
+            "fragilist ".to_string(),
+            "icexpiali ".to_string(),
+            "docious   ".to_string(),
             " omega    ".to_string(),
             "          ".to_string(),
-        ]
-    );
-
-    let mut word_or_glyph = TextArea::from([text]);
-    word_or_glyph.set_wrap_mode(WrapMode::WordOrGlyph);
-    let word_or_glyph_lines = render_lines(&word_or_glyph, 10, 6);
-    assert_eq!(
-        word_or_glyph_lines,
-        vec![
-            "alpha     ".to_string(),
-            "supercalif".to_string(),
-            "ragilistic".to_string(),
-            "expialidoc".to_string(),
-            "ious      ".to_string(),
-            " omega    ".to_string(),
         ]
     );
 }
@@ -175,14 +168,14 @@ fn wrapped_mode_line_numbers_on_continuation_rows() {
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
     textarea.set_line_number_style(Style::default());
 
-    let lines = render_lines(&textarea, 8, 4);
+    let lines = render_lines(&textarea, 9, 4);
     assert_eq!(
         lines,
         vec![
-            " 1 abcde".to_string(),
-            "   fghij".to_string(),
-            "   k    ".to_string(),
-            " 2 xy   ".to_string(),
+            " 1 abcde ".to_string(),
+            "   fghij ".to_string(),
+            "   k     ".to_string(),
+            " 2 xy    ".to_string(),
         ]
     );
 }
@@ -209,10 +202,10 @@ fn wrapped_mode_preserves_empty_logical_lines() {
     let mut textarea = TextArea::from(["ab", "", "cd"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
 
-    let lines = render_lines(&textarea, 2, 3);
+    let lines = render_lines(&textarea, 3, 3);
     assert_eq!(
         lines,
-        vec!["ab".to_string(), "  ".to_string(), "cd".to_string(),]
+        vec!["ab ".to_string(), "   ".to_string(), "cd ".to_string(),]
     );
 }
 
@@ -231,8 +224,8 @@ fn wrapped_mode_scrolls_to_cursor_visual_row() {
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
     textarea.move_cursor(CursorMove::End);
 
-    let lines = render_lines(&textarea, 5, 2);
-    assert_eq!(lines, vec!["uvwxy".to_string(), "z    ".to_string()]);
+    let lines = render_lines(&textarea, 6, 2);
+    assert_eq!(lines, vec!["uvwxy ".to_string(), "z     ".to_string()]);
 }
 
 #[test]
@@ -289,7 +282,7 @@ fn wrapped_cursor_down_moves_within_same_logical_line() {
     //   visual 1: "fghij"  (row 0, cols 5..10)
     let mut textarea = TextArea::from(["abcdefghij"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
-    render(&textarea, 5, 4);
+    render(&textarea, 6, 4);
 
     // Cursor starts at (0, 0) — top of visual line 0
     assert_eq!(textarea.cursor(), (0, 0));
@@ -310,7 +303,7 @@ fn wrapped_cursor_up_moves_within_same_logical_line() {
     //   visual 1: cols 5..10
     let mut textarea = TextArea::from(["abcdefghij"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
-    render(&textarea, 5, 4);
+    render(&textarea, 6, 4);
 
     // Move to end of text (row 0, col 10) which is on visual line 1
     textarea.move_cursor(CursorMove::End);
@@ -333,7 +326,7 @@ fn wrapped_cursor_down_crosses_logical_line_boundary() {
     //   visual 2: "xy"     (row 1, cols 0..2)
     let mut textarea = TextArea::from(["abcdefghij", "xy"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
-    render(&textarea, 5, 4);
+    render(&textarea, 6, 4);
 
     assert_eq!(textarea.cursor(), (0, 0));
 
@@ -357,7 +350,7 @@ fn wrapped_cursor_up_crosses_logical_line_boundary() {
     // visual 2: "xy"     (row 1, cols 0..2)
     let mut textarea = TextArea::from(["abcdefghij", "xy"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
-    render(&textarea, 5, 4);
+    render(&textarea, 6, 4);
 
     // Start at second logical line
     textarea.move_cursor(CursorMove::Jump(1, 0));
@@ -383,7 +376,7 @@ fn wrapped_cursor_column_preserved_across_visual_lines() {
     //   visual 1: "fghij" (cols 5..10)
     let mut textarea = TextArea::from(["abcdefghij"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
-    render(&textarea, 5, 4);
+    render(&textarea, 6, 4);
 
     // Start at col 2 on visual line 0
     textarea.move_cursor(CursorMove::Jump(0, 2));
@@ -402,7 +395,7 @@ fn wrapped_cursor_column_clamped_to_shorter_visual_line() {
     //   visual 2: "xy"    (row 1, cols 0..2)
     let mut textarea = TextArea::from(["abcdefgh", "xy"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
-    render(&textarea, 5, 4);
+    render(&textarea, 6, 4);
 
     // Start at col 4 on visual line 0
     textarea.move_cursor(CursorMove::Jump(0, 4));
@@ -417,7 +410,7 @@ fn wrapped_cursor_column_clamped_to_shorter_visual_line() {
 fn wrapped_cursor_down_preserves_visual_column_for_mixed_width_same_logical_line() {
     let mut textarea = TextArea::from(["a中bcde"]);
     textarea.set_wrap_mode(WrapMode::Glyph);
-    render(&textarea, 4, 4);
+    render(&textarea, 5, 4);
 
     // After `a中`, the data column is 2 but the visual column is 3.
     textarea.move_cursor(CursorMove::Jump(0, 2));
@@ -430,7 +423,7 @@ fn wrapped_cursor_down_preserves_visual_column_for_mixed_width_same_logical_line
 fn wrapped_cursor_up_preserves_visual_column_for_mixed_width_same_logical_line() {
     let mut textarea = TextArea::from(["a中bcde"]);
     textarea.set_wrap_mode(WrapMode::Glyph);
-    render(&textarea, 4, 4);
+    render(&textarea, 5, 4);
 
     textarea.move_cursor(CursorMove::Jump(0, 6));
     assert_eq!(textarea.cursor(), (0, 6));
@@ -442,7 +435,7 @@ fn wrapped_cursor_up_preserves_visual_column_for_mixed_width_same_logical_line()
 fn wrapped_cursor_down_preserves_visual_column_when_crossing_into_mixed_width_line() {
     let mut textarea = TextArea::from(["abcd", "a中bcde"]);
     textarea.set_wrap_mode(WrapMode::Glyph);
-    render(&textarea, 4, 4);
+    render(&textarea, 5, 4);
 
     // Visual column 3 in ASCII should land at visual column 3 in the mixed-width row.
     textarea.move_cursor(CursorMove::Jump(0, 3));
@@ -455,7 +448,7 @@ fn wrapped_cursor_down_preserves_visual_column_when_crossing_into_mixed_width_li
 fn wrapped_cursor_up_preserves_visual_column_when_crossing_out_of_mixed_width_line() {
     let mut textarea = TextArea::from(["abcd", "a中bcde"]);
     textarea.set_wrap_mode(WrapMode::Glyph);
-    render(&textarea, 4, 4);
+    render(&textarea, 5, 4);
 
     textarea.move_cursor(CursorMove::Jump(1, 2));
     assert_eq!(textarea.cursor(), (1, 2));
@@ -508,7 +501,7 @@ fn wrapped_cursor_three_visual_lines_from_one_logical() {
     //   visual 2: "klmno" (cols 10..15)
     let mut textarea = TextArea::from(["abcdefghijklmno"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
-    render(&textarea, 5, 4);
+    render(&textarea, 6, 4);
 
     assert_eq!(textarea.cursor(), (0, 0));
 

@@ -1,7 +1,6 @@
 use crate::cursor::{DataCursor, ScreenCursor};
 use crate::textarea::TextArea;
-use crate::util::num_digits;
-use crate::wrap::{WrapMode, WrappedLine, effective_wrap_width, wrapped_rows};
+use crate::wrap::{WrappedLine, wrapped_rows};
 use unicode_width::UnicodeWidthChar;
 
 #[derive(Debug, Clone, Copy)]
@@ -83,19 +82,10 @@ impl TextArea<'_> {
     }
 
     pub(crate) fn screen_map_load(&self) {
-        let wrap_width = if self.wrap_mode() != WrapMode::None {
-            let width = self.area.get().width;
-            if width > 0 {
-                let line_number_len = self
-                    .line_number_style()
-                    .map(|_| num_digits(self.lines.len()));
-                Some(effective_wrap_width(width, line_number_len))
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        let width = self.area.get().width;
+        let wrap_width = (width > 0)
+            .then(|| self.layout_metrics(width).wrap_width())
+            .flatten();
 
         let rows = match wrap_width {
             Some(width) => wrapped_rows(&self.lines, self.wrap_mode(), width, self.tab_length()),
@@ -210,6 +200,7 @@ impl TextArea<'_> {
 mod tests {
     use super::*;
     use crate::ratatui::layout::Rect;
+    use crate::wrap::WrapMode;
 
     fn make_textarea(lines: &[&str], wrap_mode: WrapMode, width: u16) -> TextArea<'static> {
         let mut textarea = TextArea::from(lines.iter().copied());

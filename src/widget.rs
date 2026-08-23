@@ -5,7 +5,6 @@ use crate::ratatui::text::{Span, Text};
 use crate::ratatui::widgets::{Paragraph, Widget};
 use crate::textarea::{CursorRenderMode, TextArea};
 use crate::util::num_digits;
-use crate::wrap::WrapMode;
 use portable_atomic::{AtomicU64, Ordering};
 use std::cmp;
 use unicode_width::UnicodeWidthStr as _;
@@ -99,11 +98,6 @@ struct RenderPlan {
 }
 
 impl<'a> TextArea<'a> {
-    fn line_number_width(&self) -> usize {
-        self.line_number_style()
-            .map_or(0, |_| num_digits(self.lines().len()) as usize + 2)
-    }
-
     fn text_widget(&'a self, top_row: usize, height: usize) -> Text<'a> {
         let lnum_len = num_digits(self.lines().len());
         let screen_lines = self.screen_lines.borrow();
@@ -136,7 +130,7 @@ impl<'a> TextArea<'a> {
 
         // Adjust the cursor position due to the width of line number.
         if self.line_number_style().is_some() {
-            let lnum = self.line_number_width() as u16;
+            let lnum = self.layout_metrics(width).line_number_width() as u16;
             if cursor <= lnum {
                 cursor *= 2; // Smoothly slide the line number into the screen on scrolling left
             } else {
@@ -199,7 +193,7 @@ impl<'a> TextArea<'a> {
             (0, 0)
         } else {
             let top_row = self.scroll_top_row(prev_top_row, height);
-            let top_col = if self.wrap_mode() == WrapMode::None {
+            let top_col = if self.layout_metrics(width).wrap_width().is_none() {
                 self.scroll_top_col(prev_top_col, width)
             } else {
                 0
@@ -245,8 +239,9 @@ impl<'a> TextArea<'a> {
             return None;
         }
 
+        let metrics = self.layout_metrics(inner_area.width);
         let mut cursor_col = cursor.col;
-        cursor_col = cursor_col.saturating_add(self.line_number_width());
+        cursor_col = cursor_col.saturating_add(metrics.line_number_width());
 
         let (line_offset, horizontal_scroll) =
             self.rendered_line_geometry(cursor_row, inner_area.width, top_col);
@@ -293,6 +288,7 @@ impl<'a> TextArea<'a> {
         }
 
         let (top_row, top_col) = self.viewport.scroll_top();
+        let metrics = self.layout_metrics(area.width);
         let screen_row = (top_row as usize)
             .saturating_add((position.y - area.y) as usize)
             .min(self.screen_lines_count().saturating_sub(1));
@@ -302,7 +298,7 @@ impl<'a> TextArea<'a> {
         let screen_col = rendered_col
             .saturating_sub(line_offset)
             .saturating_add(horizontal_scroll)
-            .saturating_sub(self.line_number_width())
+            .saturating_sub(metrics.line_number_width())
             .min(self.screen_line_max_cursor_col(screen_row));
         Some(
             self.screen_to_data_cursor(crate::cursor::ScreenCursor {
