@@ -1714,7 +1714,7 @@ fn hidden_mode_does_not_draw_cursor_cell_inside_text() {
 }
 
 #[test]
-fn hidden_mode_does_not_append_cursor_space_at_line_end() {
+fn hidden_mode_reserves_an_unstyled_cursor_space_at_line_end() {
     let mut textarea = TextArea::from(["abc"]);
     let cursor_style = Style::default().bg(Color::Red);
     textarea.set_cursor_style(cursor_style);
@@ -1886,8 +1886,60 @@ fn rendered_cursor_position_accounts_for_wrap() {
 
     assert_eq!(
         textarea.rendered_cursor_position(),
-        Some(Position { x: 6, y: 4 })
+        Some(Position { x: 7, y: 4 })
     );
+}
+
+#[test]
+fn rendered_cursor_position_is_visible_at_exact_wrapped_width() {
+    for mode in [WrapMode::Word, WrapMode::Glyph, WrapMode::WordOrGlyph] {
+        let mut textarea = TextArea::from(["abcde"]);
+        textarea.set_wrap_mode(mode);
+        textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+        textarea.move_cursor(CursorMove::End);
+
+        render_textarea(&textarea, Rect::new(0, 0, 5, 2));
+
+        assert_eq!(
+            textarea.rendered_cursor_position(),
+            Some(Position { x: 1, y: 1 }),
+            "{mode:?}"
+        );
+    }
+}
+
+#[test]
+fn rendered_cursor_position_reserves_wrapped_caret_when_right_aligned() {
+    let mut textarea = TextArea::from(["abcd"]);
+    textarea.set_wrap_mode(WrapMode::Glyph);
+    textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+    textarea.set_alignment(Alignment::Right);
+    textarea.move_cursor(CursorMove::End);
+
+    render_textarea(&textarea, Rect::new(0, 0, 5, 1));
+
+    assert_eq!(
+        textarea.rendered_cursor_position(),
+        Some(Position { x: 4, y: 0 })
+    );
+}
+
+#[test]
+fn rendered_cursor_position_does_not_move_a_whitespace_run_to_the_next_row() {
+    for mode in [WrapMode::Word, WrapMode::WordOrGlyph] {
+        let mut textarea = TextArea::from(["abcd    "]);
+        textarea.set_wrap_mode(mode);
+        textarea.set_cursor_render_mode(CursorRenderMode::Hidden);
+        textarea.move_cursor(CursorMove::End);
+
+        render_textarea(&textarea, Rect::new(0, 0, 7, 2));
+
+        assert_eq!(
+            textarea.rendered_cursor_position(),
+            Some(Position { x: 2, y: 1 }),
+            "{mode:?}"
+        );
+    }
 }
 
 #[test]
@@ -2007,11 +2059,11 @@ fn cursor_at_position_follows_wrapped_rows_and_clamps_each_row() {
 
     assert_eq!(
         textarea.cursor_at_position(Position::new(4, 5)),
-        Some((0, 7))
+        Some((0, 6))
     );
     assert_eq!(
         textarea.cursor_at_position(Position::new(6, 4)),
-        Some((0, 4))
+        Some((0, 3))
     );
 }
 

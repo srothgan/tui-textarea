@@ -12,11 +12,13 @@ use unicode_width::UnicodeWidthChar;
 pub enum WrapMode {
     /// Disable soft wrapping and keep horizontal scrolling behavior.
     None,
-    /// Wrap only at word boundaries. Words wider than viewport are not split.
+    /// Prefer word boundaries and split oversized words at grapheme boundaries.
     Word,
     /// Wrap at grapheme boundaries.
     Glyph,
-    /// Wrap at word boundaries, and fall back to grapheme wrapping for long words.
+    /// Behave like [`Word`](Self::Word).
+    ///
+    /// This compatibility variant retains the original name for existing source code and serialized values. Both word modes guarantee that oversized words are split at grapheme boundaries instead of being clipped.
     WordOrGlyph,
 }
 
@@ -32,19 +34,16 @@ pub(crate) struct WrappedLine {
 }
 
 #[derive(Clone, Copy)]
-struct Chunk {
+struct WordWrapUnit {
     start: usize,
     end: usize,
+    kind: WordWrapUnitKind,
 }
 
-pub(crate) fn effective_wrap_width(total_width: u16, line_number_len: Option<u8>) -> usize {
-    let total_width = total_width as usize;
-    let reserved = line_number_len.map(|len| len as usize + 2).unwrap_or(0);
-    if total_width > reserved {
-        total_width - reserved
-    } else {
-        1
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WordWrapUnitKind {
+    Content,
+    Whitespace,
 }
 
 pub(crate) fn wrapped_rows(
@@ -94,8 +93,7 @@ pub(crate) fn line_ranges(
             split_range_by_grapheme_width(line, 0, line.len(), width, tab_len, &mut chunks);
             chunks
         }
-        WrapMode::Word => wrap_word_chunks(line, width, tab_len, false),
-        WrapMode::WordOrGlyph => wrap_word_chunks(line, width, tab_len, true),
+        WrapMode::Word | WrapMode::WordOrGlyph => wrap_words(line, width, tab_len),
     };
 
     if out.is_empty() {
@@ -104,39 +102,36 @@ pub(crate) fn line_ranges(
     out
 }
 
-fn wrap_word_chunks(
-    line: &str,
-    width: usize,
-    tab_len: u8,
-    fallback_to_glyph: bool,
-) -> Vec<(usize, usize)> {
-    let chunks: Vec<_> = UnicodeSegmentation::split_word_bound_indices(line)
-        .map(|(start, text)| Chunk {
-            start,
-            end: start + text.len(),
-        })
-        .collect();
+fn wrap_words(line: &str, width: usize, tab_len: u8) -> Vec<(usize, usize)> {
+    let units = word_wrap_units(line);
 
-    if chunks.is_empty() {
+    if units.is_empty() {
         return vec![(0, 0)];
     }
 
     let mut out = Vec::new();
     let mut i = 0usize;
-    let mut seg_start = chunks[0].start;
+    let mut seg_start = units[0].start;
     let mut seg_end = seg_start;
     let mut seg_width = 0usize;
 
-    while i < chunks.len() {
-        let chunk = chunks[i];
+    while i < units.len() {
+        let unit = units[i];
         if seg_end == seg_start {
-            seg_start = chunk.start;
+            seg_start = unit.start;
         }
 
-        let chunk_width = display_width_from(chunk_text(line, chunk), seg_width, tab_len);
-        if seg_width + chunk_width <= width {
-            seg_end = chunk.end;
-            seg_width += chunk_width;
+        let unit_width = display_width_from(word_wrap_unit_text(line, unit), seg_width, tab_len);
+        // The final separator before a word may occupy the reserved caret cell because the cursor after it belongs to the following visual row. Trailing whitespace remains grapheme-sized so it fills the current row before wrapping.
+        let uses_reserved_cell = unit.kind == WordWrapUnitKind::Whitespace
+            && units
+                .get(i + 1)
+                .is_some_and(|next| next.kind == WordWrapUnitKind::Content)
+            && seg_end > seg_start
+            && seg_width + unit_width == width.saturating_add(1);
+        if seg_width + unit_width <= width || uses_reserved_cell {
+            seg_end = unit.end;
+            seg_width += unit_width;
             i += 1;
             continue;
         }
@@ -148,15 +143,11 @@ fn wrap_word_chunks(
             continue;
         }
 
-        if fallback_to_glyph {
-            split_range_by_grapheme_width(line, chunk.start, chunk.end, width, tab_len, &mut out);
-        } else {
-            out.push((chunk.start, chunk.end));
-        }
+        split_range_by_grapheme_width(line, unit.start, unit.end, width, tab_len, &mut out);
 
         i += 1;
-        seg_start = chunk.end;
-        seg_end = chunk.end;
+        seg_start = unit.end;
+        seg_end = unit.end;
         seg_width = 0;
     }
 
@@ -165,6 +156,28 @@ fn wrap_word_chunks(
     }
 
     out
+}
+
+fn word_wrap_units(line: &str) -> Vec<WordWrapUnit> {
+    let mut units = Vec::new();
+    for (start, text) in UnicodeSegmentation::split_word_bound_indices(line) {
+        if text.chars().all(char::is_whitespace) {
+            units.extend(UnicodeSegmentation::grapheme_indices(text, true).map(
+                |(grapheme_start, grapheme)| WordWrapUnit {
+                    start: start + grapheme_start,
+                    end: start + grapheme_start + grapheme.len(),
+                    kind: WordWrapUnitKind::Whitespace,
+                },
+            ));
+        } else {
+            units.push(WordWrapUnit {
+                start,
+                end: start + text.len(),
+                kind: WordWrapUnitKind::Content,
+            });
+        }
+    }
+    units
 }
 
 fn split_range_by_grapheme_width(
@@ -213,8 +226,8 @@ fn split_range_by_grapheme_width(
 }
 
 #[inline]
-fn chunk_text(line: &str, chunk: Chunk) -> &str {
-    &line[chunk.start..chunk.end]
+fn word_wrap_unit_text(line: &str, unit: WordWrapUnit) -> &str {
+    &line[unit.start..unit.end]
 }
 
 fn display_width_from(text: &str, start_width: usize, tab_len: u8) -> usize {
@@ -248,15 +261,38 @@ mod tests {
     }
 
     #[test]
-    fn word_wrap_keeps_long_word() {
+    fn word_wrap_splits_long_word() {
         let have = segments("helloworld", WrapMode::Word, 4);
-        assert_eq!(have, vec!["helloworld"]);
+        assert_eq!(have, vec!["hell", "owor", "ld"]);
     }
 
     #[test]
     fn word_or_glyph_wrap_splits_long_word() {
         let have = segments("helloworld", WrapMode::WordOrGlyph, 4);
         assert_eq!(have, vec!["hell", "owor", "ld"]);
+    }
+
+    #[test]
+    fn word_modes_have_compatible_wrapping() {
+        let word = segments("hello supercalifragilistic world", WrapMode::Word, 8);
+        let compatibility = segments("hello supercalifragilistic world", WrapMode::WordOrGlyph, 8);
+        assert_eq!(word, compatibility);
+    }
+
+    #[test]
+    fn word_modes_consume_whitespace_one_grapheme_at_a_time() {
+        for mode in [WrapMode::Word, WrapMode::WordOrGlyph] {
+            assert_eq!(
+                segments("abcd    ", mode, 6),
+                vec!["abcd  ", "  "],
+                "{mode:?} trailing whitespace"
+            );
+            assert_eq!(
+                segments("abcd    x", mode, 6),
+                vec!["abcd  ", "  x"],
+                "{mode:?} separator whitespace"
+            );
+        }
     }
 
     #[test]

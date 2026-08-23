@@ -441,12 +441,13 @@ textarea.set_wrap_mode(WrapMode::WordOrGlyph);
 Supported modes:
 
 - `WrapMode::None`: Disable soft wrap (default behavior).
-- `WrapMode::Word`: Wrap only at word boundaries.
+- `WrapMode::Word`: Prefer word boundaries and split oversized words at grapheme boundaries so text is never clipped.
 - `WrapMode::Glyph`: Wrap at grapheme boundaries.
-- `WrapMode::WordOrGlyph`: Wrap at word boundaries with grapheme fallback for long words.
+- `WrapMode::WordOrGlyph`: Compatibility name for `WrapMode::Word`, retained for existing source code and serialized values.
 
-When wrapping is enabled, `CursorMove::Up` and `CursorMove::Down` follow visual rows instead of jumping only between
-logical lines.
+When wrapping is enabled, the layout reserves a terminal cell for the caret and does not use horizontal scrolling. `CursorMove::Up` and `CursorMove::Down` follow visual rows instead of jumping only between logical lines. `WrapMode::None` continues to use the full width with horizontal scrolling.
+
+A wrapped textarea needs at least two editable terminal cells after borders and line numbers to display both a single-cell grapheme and the caret; wider graphemes require enough cells for their terminal display width.
 
 ### Measure preferred height
 

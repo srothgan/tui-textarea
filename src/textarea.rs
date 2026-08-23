@@ -2,6 +2,7 @@ use crate::cursor::{CursorMove, DataCursor, ScreenCursor};
 use crate::highlight::{CursorCellRender, LineHighlighter};
 use crate::history::{Edit, EditKind, History};
 use crate::input::{Input, Key};
+use crate::layout::LayoutMetrics;
 use crate::ratatui::layout::{Alignment, Position, Rect};
 use crate::ratatui::style::{Color, Modifier, Style};
 use crate::ratatui::text::{Line, Text};
@@ -10,10 +11,10 @@ use crate::screen_map::{DataLine, ScreenLine};
 use crate::scroll::Scrolling;
 #[cfg(feature = "search")]
 use crate::search::Search;
-use crate::util::{Pos, num_digits, spaces};
+use crate::util::{Pos, spaces};
 use crate::widget::Viewport;
 use crate::word::{find_word_exclusive_end_forward, find_word_start_backward};
-use crate::wrap::{WrapMode, WrappedLine, effective_wrap_width, wrapped_rows};
+use crate::wrap::{WrapMode, WrappedLine, wrapped_rows};
 #[cfg(feature = "arbitrary")]
 use arbitrary::Arbitrary;
 #[cfg(feature = "serde")]
@@ -2932,15 +2933,22 @@ impl<'a> TextArea<'a> {
             return self.placeholder.lines.len().min(u16::MAX as usize) as u16;
         }
 
-        let rows = if self.wrap_mode == WrapMode::None {
-            self.lines.len()
-        } else {
-            let line_number_len = self.line_number_style.map(|_| num_digits(self.lines.len()));
-            let wrap_width = effective_wrap_width(width_cols, line_number_len);
+        let rows = if let Some(wrap_width) = self.layout_metrics(width_cols).wrap_width() {
             wrapped_rows(&self.lines, self.wrap_mode, wrap_width, self.tab_len).len()
+        } else {
+            self.lines.len()
         };
 
         rows.min(u16::MAX as usize) as u16
+    }
+
+    pub(crate) fn layout_metrics(&self, inner_width: u16) -> LayoutMetrics {
+        LayoutMetrics::new(
+            inner_width,
+            self.lines.len(),
+            self.line_number_style.is_some(),
+            self.wrap_mode,
+        )
     }
 
     /// Check if the textarea has a empty content.

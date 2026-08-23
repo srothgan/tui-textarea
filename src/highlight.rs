@@ -150,14 +150,14 @@ impl<'a> LineHighlighter<'a> {
     }
 
     pub fn cursor_line(&mut self, cursor_col: usize, style: Style) {
-        if let CursorCellRender::Draw(cursor_style) = self.cursor_cell {
-            if let Some((start, c)) = self.line.char_indices().nth(cursor_col) {
+        if let Some((start, c)) = self.line.char_indices().nth(cursor_col) {
+            if let CursorCellRender::Draw(cursor_style) = self.cursor_cell {
                 self.boundaries
                     .push((Boundary::Cursor(cursor_style), start));
                 self.boundaries.push((Boundary::End, start + c.len_utf8()));
-            } else {
-                self.cursor_at_end = true;
             }
+        } else {
+            self.cursor_at_end = true;
         }
         self.style_begin = style;
     }
@@ -274,8 +274,13 @@ impl<'a> LineHighlighter<'a> {
             if !built.is_empty() {
                 spans.push(Span::styled(built, style_begin));
             }
-            if let (true, CursorCellRender::Draw(cursor_style)) = (cursor_at_end, cursor_cell) {
-                spans.push(Span::styled(" ", cursor_style));
+            if cursor_at_end {
+                let style = match cursor_cell {
+                    CursorCellRender::Draw(cursor_style) => cursor_style,
+                    CursorCellRender::Hidden if select_at_end => select_style,
+                    CursorCellRender::Hidden => style_begin,
+                };
+                spans.push(Span::styled(" ", style));
             } else if select_at_end {
                 spans.push(Span::styled(" ", select_style));
             }
@@ -309,8 +314,13 @@ impl<'a> LineHighlighter<'a> {
             spans.push(Span::styled(builder.build(&line[start..]), style));
         }
 
-        if let (true, CursorCellRender::Draw(cursor_style)) = (cursor_at_end, cursor_cell) {
-            spans.push(Span::styled(" ", cursor_style));
+        if cursor_at_end {
+            let style = match cursor_cell {
+                CursorCellRender::Draw(cursor_style) => cursor_style,
+                CursorCellRender::Hidden if select_at_end => select_style,
+                CursorCellRender::Hidden => style_begin,
+            };
+            spans.push(Span::styled(" ", style));
         } else if select_at_end {
             spans.push(Span::styled(" ", select_style));
         }

@@ -219,7 +219,7 @@ fn set_lines_updates_measurement_immediately() {
     let mut textarea = TextArea::from(["line"]);
     textarea.set_wrap_mode(WrapMode::WordOrGlyph);
 
-    assert_eq!(textarea.measure(4).content_rows, 1);
+    assert_eq!(textarea.measure(4).content_rows, 2);
     textarea.set_lines(vec!["abcdef".to_string()], (0, 6));
     assert_eq!(textarea.measure(4).content_rows, 2);
 }

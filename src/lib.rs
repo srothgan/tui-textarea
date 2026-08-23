@@ -8,6 +8,7 @@ mod cursor;
 mod highlight;
 mod history;
 mod input;
+mod layout;
 mod screen_map;
 mod scroll;
 #[cfg(feature = "search")]
