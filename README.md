@@ -879,7 +879,7 @@ println!("{input:?}");
 
 ## Minimum Supported Rust Version
 
-The minimum supported Rust version is 1.88.0 regardless of which supported Ratatui backend feature you enable.
+The minimum supported Rust version is 1.88.0 regardless of which supported Ratatui backend feature you enable. Every pull request is verified on that exact toolchain, and additionally built and tested on current stable.
 
 ## Versioning
 

@@ -11,12 +11,25 @@ permissions:
 
 jobs:
   cargo-clippy:
-    name: cargo clippy --all-targets -- -D warnings
+    # See the note in test.yml: the MSRV entry's name is a required status
+    # check and must stay byte-identical.
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - toolchain: "1.88.0"
+            name: cargo clippy --all-targets -- -D warnings
+          # New lints land in stable first, which is exactly why this entry is
+          # informational: a new Rust release must not block unrelated PRs.
+          - toolchain: stable
+            name: cargo clippy (stable)
     steps:
-      - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
         with:
+          toolchain: ${{ matrix.toolchain }}
           components: clippy
-      - uses: Swatinem/rust-cache@v2.9.2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo clippy --locked --all-targets -- -D warnings
