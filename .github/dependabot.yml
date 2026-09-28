@@ -13,7 +13,22 @@ updates:
       - dependencies
       - cargo
     open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
+      include: "scope"
     groups:
+      # The ratatui crates must move in lockstep: ratatui, ratatui-core and
+      # ratatui-widgets are split halves of one release. Listed first so it
+      # wins over cargo-non-major, and matching all update types because a
+      # 0.x bump is breaking under cargo semver even though Dependabot labels
+      # it "minor" -- without this group it would hide inside the batch below.
+      ratatui:
+        applies-to: version-updates
+        patterns:
+          - "ratatui"
+          - "ratatui-*"
+      # Batch routine bumps into one reviewable PR. Major bumps stay ungrouped
+      # so each breaking change arrives on its own.
       cargo-non-major:
         applies-to: version-updates
         patterns:
@@ -33,6 +48,8 @@ updates:
       - dependencies
       - github-actions
     open-pull-requests-limit: 10
+    commit-message:
+      prefix: "ci"
     groups:
       github-actions-non-major:
         applies-to: version-updates
@@ -41,6 +58,3 @@ updates:
         update-types:
           - patch
           - minor
-    ignore:
-      # These refs select the Rust/MSRV version rather than an action release.
-      - dependency-name: dtolnay/rust-toolchain

@@ -40,3 +40,4 @@ integration of those libraries.
 - Dependency updates are managed via Dependabot
 - Dependabot security alerts and security updates are enabled
 - All PRs require CI checks for test, clippy, fmt, and MSRV compatibility
+- GitHub Actions are pinned to full commit SHAs, so a moved or retagged release cannot silently change what CI executes
