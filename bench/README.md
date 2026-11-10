@@ -95,4 +95,4 @@ The files were consolidated, while useful workload distinctions were retained:
 | `search_forward`, `search_backward` | `search` separates nearby matches, distant matches, and misses; compilation and search-plus-frame have their own cases |
 | `wrap_render` | `layout_frame` separates warm painting, first layout, and resizing; measurement and rendering features have additional groups |
 
-The target names and timing boundaries have changed. Establish a fresh reference with this suite; do not compare its numbers directly with the inherited benchmarks. The in-memory terminal helper API is retained for the existing fuzz targets until their separate harness is introduced.
+The target names and timing boundaries have changed. Establish a fresh reference with this suite; do not compare its numbers directly with the inherited benchmarks. Fuzzing uses its own backend-free harness, documented in [the fuzzing guide](../fuzz/README.md).

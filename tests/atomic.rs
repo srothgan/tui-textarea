@@ -253,3 +253,32 @@ fn wrapped_vertical_movement_normalizes_atom_interiors() {
     textarea.move_cursor(CursorMove::Up);
     assert_eq!(textarea.cursor(), (0, 2));
 }
+
+#[test]
+fn direct_atomic_deletion_clears_selection_on_success() {
+    let mut textarea = TextArea::from(["abc"]);
+    let atom = AtomicRange {
+        row: 0,
+        start_col: 0,
+        end_col: 3,
+    };
+    textarea.set_atomic_ranges([atom]);
+    textarea.move_cursor(CursorMove::End);
+    textarea.start_selection();
+    assert_eq!(
+        textarea.delete_atomic_range_at_cursor(AtomicDeleteDirection::Forward),
+        None
+    );
+    assert!(textarea.is_selecting());
+    textarea.move_cursor(CursorMove::Head);
+    assert_eq!(
+        textarea.delete_atomic_range_at_cursor(AtomicDeleteDirection::Forward),
+        Some(atom)
+    );
+    assert_eq!(textarea.lines(), [""]);
+    assert_eq!(textarea.selection_range(), None);
+    assert!(textarea.undo());
+    assert_eq!(textarea.lines(), ["abc"]);
+    assert!(textarea.redo());
+    assert_eq!(textarea.lines(), [""]);
+}

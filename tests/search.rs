@@ -3,6 +3,40 @@
 use tui_textarea::{CursorMove, TextArea};
 
 #[test]
+fn wrapped_search_highlights_only_intersecting_segments() {
+    use ratatui::{buffer::Buffer, layout::Rect, style::Color, widgets::Widget};
+    use tui_textarea::WrapMode;
+
+    for mode in [WrapMode::Glyph, WrapMode::Word, WrapMode::WordOrGlyph] {
+        let mut textarea = TextArea::from(["ab界🦀cd"]);
+        textarea.set_wrap_mode(mode);
+        textarea.set_search_pattern("ab").unwrap();
+        textarea.set_cursor_render_mode(tui_textarea::CursorRenderMode::Hidden);
+        textarea.set_cursor_line_style(Default::default());
+        let area = Rect::new(0, 0, 5, 4);
+        let mut buffer = Buffer::empty(area);
+        (&textarea).render(area, &mut buffer);
+        assert_eq!(buffer[(0, 0)].symbol(), "a");
+        assert_eq!(buffer[(0, 0)].bg, Color::Blue);
+        assert_eq!(buffer[(0, 1)].symbol(), "🦀");
+        assert_ne!(buffer[(0, 1)].bg, Color::Blue);
+    }
+}
+
+#[test]
+fn search_backward_includes_matches_before_end_of_line() {
+    for text in ["a", "café 界🦀", "a\u{301}"] {
+        let mut textarea = TextArea::from([text]);
+        textarea.set_search_pattern(".").unwrap();
+        for include_cursor in [false, true] {
+            textarea.move_cursor(CursorMove::End);
+            assert!(textarea.search_back(include_cursor), "{text:?}");
+            assert_eq!(textarea.cursor(), (0, text.chars().count() - 1));
+        }
+    }
+}
+
+#[test]
 fn search_lines_forward() {
     #[rustfmt::skip]
     let mut textarea = TextArea::from([

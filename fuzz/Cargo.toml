@@ -1,55 +1,52 @@
 [package]
 name = "tui-textarea-fuzz"
 version = "0.0.0"
-authors = ["Automatically generated"]
 publish = false
 edition = "2021"
+rust-version = "1.88.0"
+autobins = false
 
 [package.metadata]
 cargo-fuzz = true
 
-[dependencies]
-libfuzzer-sys = "0.4"
-arbitrary = { version = "1", features = ["derive"] }
-tui-textarea = { package = "tui-textarea-2", path = "..", features = ["search", "arbitrary"] }
-tui-textarea-bench = { path = "../bench" }
+[features]
+default = ["fuzzing"]
+fuzzing = ["dep:libfuzzer-sys"]
 
-# Prevent this from interfering with workspaces
+[dependencies]
+libfuzzer-sys = { version = "0.4", optional = true }
+tui-textarea = { package = "tui-textarea-2", path = "..", default-features = false, features = ["no-backend", "search"] }
+ratatui-core = { version = "0.1.0", default-features = false }
+ratatui-widgets = { version = "0.3.0", default-features = false }
+regex = "1"
+
 [workspace]
 members = ["."]
 
 [[bin]]
-name = "edit"
-path = "fuzz_targets/edit.rs"
+name = "editing_history"
+path = "fuzz_targets/editing_history.rs"
+required-features = ["fuzzing"]
 test = false
 doc = false
 
 [[bin]]
-name = "insert_delete"
-path = "fuzz_targets/insert_delete.rs"
+name = "selection_atomic"
+path = "fuzz_targets/selection_atomic.rs"
+required-features = ["fuzzing"]
 test = false
 doc = false
 
 [[bin]]
-name = "undo_redo"
-path = "fuzz_targets/undo_redo.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "selection"
-path = "fuzz_targets/selection.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "wrap_render"
-path = "fuzz_targets/wrap_render.rs"
+name = "layout"
+path = "fuzz_targets/layout.rs"
+required-features = ["fuzzing"]
 test = false
 doc = false
 
 [[bin]]
 name = "search"
 path = "fuzz_targets/search.rs"
+required-features = ["fuzzing"]
 test = false
 doc = false
