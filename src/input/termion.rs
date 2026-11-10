@@ -138,7 +138,7 @@ mod tests {
             #[cfg(feature = "termion")]
             (KeyEvent::CtrlHome, input(Key::Home, true, false, false)),
         ] {
-            assert_eq!(Input::from(from), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from), to, "{from:?} -> {to:?}");
         }
     }
 
@@ -166,7 +166,7 @@ mod tests {
                 input(Key::Null, false, false, false),
             ),
         ] {
-            assert_eq!(Input::from(from), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from), to, "{from:?} -> {to:?}");
         }
     }
 
@@ -186,7 +186,7 @@ mod tests {
                 input(Key::Null, false, false, false),
             ),
         ] {
-            assert_eq!(Input::from(from.clone()), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from.clone()), to, "{from:?} -> {to:?}");
         }
     }
 }

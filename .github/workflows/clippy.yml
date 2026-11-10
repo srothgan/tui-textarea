@@ -32,4 +32,15 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           components: clippy
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Lint default features
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Lint optional features
+        run: cargo clippy --locked --all-targets --features search,serde,arbitrary -- -D warnings
+      - name: Lint crossterm 0.28
+        run: cargo clippy --locked --all-targets --no-default-features --features crossterm_0_28,search,serde,arbitrary -- -D warnings
+      - name: Lint without a backend
+        run: cargo clippy --locked --all-targets --no-default-features --features no-backend,search,serde,arbitrary -- -D warnings
+      - name: Lint termwiz
+        run: cargo clippy --locked --all-targets --no-default-features --features termwiz,search,serde,arbitrary -- -D warnings
+      - name: Lint termion
+        run: cargo clippy --locked --all-targets --no-default-features --features termion,search,serde,arbitrary -- -D warnings
