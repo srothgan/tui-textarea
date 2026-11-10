@@ -2,6 +2,22 @@
 
 <!-- ## [Unreleased] -->
 
+## [0.14.0] - 2026-11-10 [Changes][v0.14.0]
+
+### Bug Fixes
+
+- **Forward deletion** (#46, @srothgan): Delete zero-width characters, including combining marks, joiners, and control characters, without stalling; preserve undo/redo behavior.
+- **Backward search** (#46, @srothgan): Find matches on the current line when searching backward from the end-of-line cursor position.
+- **Wrapped search highlighting** (#46, @srothgan): Avoid arithmetic overflow when clipping matches outside a wrapped segment, and highlight only intersecting segments.
+- **Atomic deletion** (#46, @srothgan): Clear the active selection after successful direct atomic-range deletion so selection endpoints cannot refer to removed text.
+- **Extreme scrolling** (#46, @srothgan): Handle the most negative scroll delta without overflow and saturate viewport movement at its bounds.
+
+### Maintenance
+
+- **Benchmarks** (#46, @srothgan): Replace the custom runner and fourteen targets with five Criterion groups covering 183 validated workloads. Correct no-op movement/deletion cases, history depths, and timing boundaries; document reproducible manual performance comparisons.
+- **Fuzzing** (#46, @srothgan): Add four bounded behavioral targets, independent assertions, 35 deliberate regression and edge-case seeds, and stable replay tools. Run Linux sanitizer smoke checks in CI and longer weekly/manual campaigns with corpus reuse and crash artifacts.
+- **Contributor tooling and CI** (#39, #46, @srothgan): Repair watch commands, expand backend and optional-feature coverage on MSRV and current stable, retain Windows checks, and validate benchmark workloads in CI. Refresh contributor guides and simplify the PR validation section.
+
 ## [0.13.2] - 2026-08-23 [Changes][v0.13.2]
 
 ### Bug Fixes
@@ -527,6 +543,7 @@ First release :tada:
 - docs.rs: https://docs.rs/tui-textarea/latest/tui_textarea/
 
 
+[v0.14.0]: https://github.com/srothgan/tui-textarea/compare/v0.13.2...v0.14.0
 [v0.13.2]: https://github.com/srothgan/tui-textarea/compare/v0.13.0...v0.13.2
 [v0.13.0]: https://github.com/srothgan/tui-textarea/compare/v0.12.1...v0.13.0
 [v0.12.1]: https://github.com/srothgan/tui-textarea/compare/v0.12.0...v0.12.1

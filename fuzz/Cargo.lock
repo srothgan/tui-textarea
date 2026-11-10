@@ -451,7 +451,7 @@ dependencies = [
 
 [[package]]
 name = "tui-textarea-2"
-version = "0.13.2"
+version = "0.14.0"
 dependencies = [
  "portable-atomic",
  "ratatui-core",
