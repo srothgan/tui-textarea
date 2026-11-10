@@ -33,4 +33,17 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo test --locked
+      - name: Test default features and doctests
+        run: cargo test --locked
+      - name: Test optional features and doctests
+        run: cargo test --locked --features search,serde,arbitrary
+      # The API docs demonstrate crossterm 0.29. Run their doctests above;
+      # test each alternative backend without those backend-specific snippets.
+      - name: Test crossterm 0.28
+        run: cargo test --locked --no-default-features --features crossterm_0_28,search,serde,arbitrary --lib --tests
+      - name: Test without a backend
+        run: cargo test --locked --no-default-features --features no-backend,search,serde,arbitrary --lib --tests
+      - name: Test termwiz
+        run: cargo test --locked --no-default-features --features termwiz,search,serde,arbitrary --lib --tests
+      - name: Test termion
+        run: cargo test --locked --no-default-features --features termion,search,serde,arbitrary --lib --tests

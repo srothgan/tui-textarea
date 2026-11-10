@@ -1,1 +1,2 @@
 recordings/record.sh text eol=lf
+fuzz/seeds/** binary

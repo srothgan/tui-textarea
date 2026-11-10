@@ -67,7 +67,7 @@ impl Viewport {
             if delta >= 0 {
                 pos.saturating_add(delta as u16)
             } else {
-                pos.saturating_sub(-delta as u16)
+                pos.saturating_sub(delta.unsigned_abs())
             }
         }
 
@@ -347,5 +347,24 @@ impl Widget for &TextArea<'_> {
             .set(plan.rendered_cursor_position);
 
         inner.render(text_area, buf);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Viewport;
+
+    #[test]
+    fn scrolling_saturates_for_extreme_signed_deltas() {
+        let mut viewport = Viewport::default();
+        viewport.store(40_000, 50_000, 80, 24);
+        viewport.scroll(i16::MIN, i16::MIN);
+        assert_eq!(viewport.rect(), (7_232, 17_232, 80, 24));
+        viewport.scroll(i16::MIN, i16::MIN);
+        assert_eq!(viewport.rect(), (0, 0, 80, 24));
+        for _ in 0..3 {
+            viewport.scroll(i16::MAX, i16::MAX);
+        }
+        assert_eq!(viewport.rect(), (u16::MAX, u16::MAX, 80, 24));
     }
 }

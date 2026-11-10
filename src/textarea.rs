@@ -1471,12 +1471,17 @@ impl<'a> TextArea<'a> {
             return true;
         }
 
-        let before = self.cursor;
-        self.move_cursor_with_shift(CursorMove::Forward, false);
-        if before == self.cursor {
-            return false; // Cursor didn't move, meant no character at next of cursor.
+        // Advance in text coordinates: screen movement is ambiguous for zero-width
+        // characters and at wrapped boundaries, but deletion consumes one scalar.
+        let DataCursor(row, col) = self.cursor;
+        if col < self.lines[row].chars().count() {
+            self.cursor.1 += 1;
+        } else if row + 1 < self.lines.len() {
+            self.cursor = DataCursor(row + 1, 0);
+        } else {
+            return false;
         }
-
+        self.history.break_run();
         self.delete_char()
     }
 
@@ -1814,13 +1819,14 @@ impl<'a> TextArea<'a> {
 
     /// Delete the atomic range hit by a directional deletion at the current cursor.
     ///
-    /// The returned range is the pre-delete range. As with other successful content mutations,
-    /// configured atomic ranges are cleared after the edit is recorded.
+    /// The returned range is the pre-delete range. A successful deletion cancels the active selection. As with other successful content mutations, configured atomic ranges are cleared after the edit is recorded.
     pub fn delete_atomic_range_at_cursor(
         &mut self,
         direction: AtomicDeleteDirection,
     ) -> Option<AtomicRange> {
         let range = self.atomic_range_at_cursor(direction)?;
+        // The old selection endpoints may no longer exist after deleting the atom.
+        self.cancel_selection();
         let start = self.pos_at(range.row, range.start_col);
         let end = self.pos_at(range.row, range.end_col);
         self.delete_range(start, end, false);
@@ -2093,7 +2099,7 @@ impl<'a> TextArea<'a> {
                 .filter_map(|(start, end)| {
                     let start = cmp::max(start, wrapped.start_byte);
                     let end = cmp::min(end, wrapped.end_byte);
-                    (start < end).then_some((start - wrapped.start_byte, end - wrapped.start_byte))
+                    (start < end).then(|| (start - wrapped.start_byte, end - wrapped.start_byte))
                 })
                 .collect::<Vec<_>>();
             if !clipped.is_empty() {

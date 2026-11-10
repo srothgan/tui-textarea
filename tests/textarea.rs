@@ -2226,6 +2226,28 @@ fn test_delete_next_char() {
 }
 
 #[test]
+fn delete_next_char_consumes_zero_width_scalars() {
+    for text in ["\0\u{1}\0", "\u{301}\u{200d}", "a\u{301}b", "界🦀"] {
+        let mut textarea = TextArea::from([text]);
+        for (offset, ch) in text.char_indices() {
+            let before = textarea.lines().to_vec();
+            assert!(textarea.delete_next_char(), "{text:?} at {offset}");
+            assert_eq!(
+                textarea.lines(),
+                [text[offset + ch.len_utf8()..].to_owned()]
+            );
+            assert_eq!(textarea.cursor(), (0, 0));
+            let after = textarea.lines().to_vec();
+            assert!(textarea.undo());
+            assert_eq!(textarea.lines(), before);
+            assert!(textarea.redo());
+            assert_eq!(textarea.lines(), after);
+        }
+        assert!(!textarea.delete_next_char());
+    }
+}
+
+#[test]
 fn test_delete_line_by_end() {
     let t = DeleteTester(&["aaa bbb", "d"], |t| t.delete_line_by_end());
     t.test((0, 0), (0, 0, &["", "d"], "aaa bbb"));

@@ -1,17 +1,19 @@
 ## Problem
-Describe the user-visible problem this PR solves.
 
-## Change Summary
-List the key code and behavior changes.
+<!-- Explain the problem or motivation. Link related issues when applicable. -->
 
-## Test Evidence
-Required checks. CI runs these on the 1.88.0 MSRV toolchain:
-- [ ] `cargo fmt --check`
-- [ ] `cargo clippy --all-targets -- -D warnings`
-- [ ] `cargo check`
-- [ ] `cargo test`
+## Changes
 
-CI additionally runs `cargo check`, `cargo test`, and `cargo clippy` on current stable. Those are informational and do not block the merge.
+<!-- Describe the resulting behavior and any implementation choices reviewers should understand. -->
 
-## Breaking Changes
-Describe any API or behavior changes that may break existing users.
+## Validation
+
+<!-- List the checks you actually ran and their results. Include relevant toolchain/backend details, regression coverage, or benchmark/fuzz results when applicable. For documentation-only changes, a brief review note is enough. -->
+
+-
+
+<!-- Note relevant checks not run locally or left to CI, and explain any known failures. Commands and supported configurations: https://github.com/srothgan/tui-textarea/blob/main/CONTRIBUTING.md#quality-bar -->
+
+## Compatibility
+
+<!-- State "None" or describe compatibility impact, including API/behavior changes, MSRV changes, and migration steps. -->

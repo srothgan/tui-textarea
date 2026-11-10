@@ -80,7 +80,7 @@ impl SearchBox<'_> {
         let b = if let Some(err) = err {
             Block::default()
                 .borders(Borders::ALL)
-                .title(format!("Search: {}", err))
+                .title(format!("Search: {err}"))
                 .style(Style::default().fg(Color::Red))
         } else {
             Block::default().borders(Borders::ALL).title("Search")

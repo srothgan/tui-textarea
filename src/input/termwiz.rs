@@ -182,7 +182,7 @@ mod tests {
                 input(Key::Null, true, false, false),
             ),
         ] {
-            assert_eq!(Input::from(from.clone()), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from.clone()), to, "{from:?} -> {to:?}");
         }
     }
 
@@ -224,10 +224,10 @@ mod tests {
                 input(Key::Null, false, false, false),
             ),
         ] {
-            assert_eq!(Input::from(from.clone()), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from.clone()), to, "{from:?} -> {to:?}");
 
             let from = pixel_mouse_event(from.mouse_buttons, from.modifiers);
-            assert_eq!(Input::from(from.clone()), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from.clone()), to, "{from:?} -> {to:?}");
         }
     }
 
@@ -254,7 +254,7 @@ mod tests {
                 input(Key::Null, false, false, false),
             ),
         ] {
-            assert_eq!(Input::from(from.clone()), to, "{:?} -> {:?}", from, to);
+            assert_eq!(Input::from(from.clone()), to, "{from:?} -> {to:?}");
         }
     }
 }

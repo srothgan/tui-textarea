@@ -2,76 +2,37 @@
 name = "tui-textarea-bench"
 version = "0.0.0"
 edition = "2021"
+rust-version = "1.88.0"
 publish = false
 license = "MIT"
+autobenches = false
 
 [lib]
 bench = false
 
-[[bin]]
-name = "runner"
-path = "src/bin/runner.rs"
-
 [dependencies]
-tui-textarea = { package = "tui-textarea-2", path = "..", features = ["no-backend", "search"] }
+tui-textarea = { package = "tui-textarea-2", path = "..", default-features = false, features = ["no-backend", "search"] }
 ratatui = { version = "0.30.0", default-features = false }
 
 [dev-dependencies]
 criterion = "0.8.2"
-rand = "0.10.3"
 
 [[bench]]
-name = "insert_append"
+name = "editing"
 harness = false
 
 [[bench]]
-name = "insert_random"
+name = "cursor"
 harness = false
 
 [[bench]]
-name = "insert_long"
+name = "layout"
 harness = false
 
 [[bench]]
-name = "search_forward"
+name = "history"
 harness = false
 
 [[bench]]
-name = "search_backward"
-harness = false
-
-[[bench]]
-name = "cursor_char"
-harness = false
-
-[[bench]]
-name = "cursor_word"
-harness = false
-
-[[bench]]
-name = "cursor_paragraph"
-harness = false
-
-[[bench]]
-name = "cursor_edge"
-harness = false
-
-[[bench]]
-name = "delete_char"
-harness = false
-
-[[bench]]
-name = "delete_word"
-harness = false
-
-[[bench]]
-name = "delete_line"
-harness = false
-
-[[bench]]
-name = "wrap_render"
-harness = false
-
-[[bench]]
-name = "undo_redo"
+name = "search"
 harness = false
