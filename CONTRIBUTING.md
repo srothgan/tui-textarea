@@ -49,12 +49,32 @@ Install [cargo-watch](https://github.com/watchexec/cargo-watch) with `cargo inst
 
 On Linux, also run `cargo watch-check-termion` or `cargo watch-test-termion` when changing termion support. The portable aliases omit termion so they work on Windows.
 
+### Benchmark and Fuzz Validation
+
+The benchmark package and fuzz workspace have their own checks; the root `cargo check --all-targets` command does not cover them. For changes to the editor or its tooling, run the relevant commands below from the repository root:
+
+```sh
+cargo clippy --locked -p tui-textarea-bench --all-targets -- -D warnings
+cargo bench --locked -p tui-textarea-bench --benches -- --test
+cargo run --manifest-path fuzz/Cargo.toml --locked --no-default-features --example seed_corpus -- --check
+cargo run --manifest-path fuzz/Cargo.toml --locked --no-default-features --example replay -- --seeds
+cargo clippy --manifest-path fuzz/Cargo.toml --locked --no-default-features --lib --examples -- -D warnings
+```
+
+PR and `main` push workflows lint and validate all five benchmark targets and replay fuzz seeds on Linux with MSRV and current stable. The existing Windows jobs also verify and replay the seeds on both toolchains. Benchmark validation compiles optimized executables and runs their workload assertions without collecting timing samples. Linux additionally runs short sanitizer campaigns for all four fuzz targets on nightly Rust.
+
+Longer fuzz campaigns run weekly and through the Fuzz workflow's **Run workflow** button. See the [fuzzing guide](fuzz/README.md#ci-campaigns-and-artifacts) for budgets, corpus reuse, failure artifacts, and reproduction. Performance comparisons remain manual on a consistent machine; use the [benchmark guide](bench/README.md#establish-and-compare-baselines) to establish and compare baselines.
+
+Include the checks you actually ran and their results in the PR's Validation section. Identify relevant checks left to CI and any known failures. Documentation-only changes can use a brief review note.
+
 ## Toolchains
 
-CI runs two Rust toolchains because they catch different problems:
+Library CI runs two Rust toolchains because they catch different problems:
 
 - **1.88.0, the MSRV declared in `Cargo.toml`** -- the required `cargo check`, `cargo test`, and `cargo clippy --all-targets -- -D warnings` checks use this toolchain. The test and Clippy checks cover every configuration in the table. Install it with `rustup toolchain install 1.88.0` and reproduce any command above by inserting `+1.88.0` after `cargo`, for example `cargo +1.88.0 test --locked --features search,serde,arbitrary`.
 - **Current stable** -- the `cargo check (stable)`, `cargo test (stable)`, and `cargo clippy (stable)` checks. They surface new lints and upstream breakage early and are deliberately *not* required, so a fresh Rust release cannot block unrelated pull requests. Treat a stable-only failure as follow-up work rather than a merge blocker.
+
+The benchmark and Linux seed-replay jobs also use MSRV and current stable. Native fuzz campaigns use nightly Rust for sanitizer instrumentation; this does not change the library's MSRV. The existing required check names remain unchanged, and the additional benchmark/fuzz jobs are not listed in the checked-in branch-protection configuration.
 
 ## Reviews
 

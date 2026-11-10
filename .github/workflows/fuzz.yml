@@ -1,0 +1,133 @@
+name: Fuzz
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "23 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: fuzz seed replay (${{ matrix.toolchain }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: ["1.88.0", stable]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: fuzz
+      - name: Verify deliberate seeds
+        run: cargo run --manifest-path fuzz/Cargo.toml --locked --no-default-features --example seed_corpus -- --check
+      - name: Replay all seeds
+        run: cargo run --manifest-path fuzz/Cargo.toml --locked --no-default-features --example replay -- --seeds
+      - name: Lint fuzz harness and replay tools
+        run: cargo clippy --manifest-path fuzz/Cargo.toml --locked --no-default-features --lib --examples -- -D warnings
+
+  campaign:
+    name: fuzz ${{ matrix.target }} (${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'long' || 'smoke' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [editing_history, selection_atomic, layout, search]
+    env:
+      FUZZ_TARGET: ${{ matrix.target }}
+      FUZZ_SECONDS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1800' || '60' }}
+      FUZZ_RUNS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1000000' || '10000' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: nightly
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: fuzz
+          key: fuzz-${{ matrix.target }}
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked --version 0.13.2
+      # PR smoke runs always start with checked-in seeds. Only long runs reuse discoveries.
+      - name: Restore corpus
+        id: corpus
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          # Bump v1 if the trace encoding changes incompatibly.
+          key: fuzz-corpus-v1-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: fuzz-corpus-v1-${{ matrix.target }}-
+      - name: Record environment
+        run: |
+          mkdir -p "fuzz/corpus/$FUZZ_TARGET" "target/fuzz-ci/$FUZZ_TARGET"
+          {
+            git rev-parse HEAD
+            rustc +nightly -Vv
+            cargo fuzz --version
+            uname -a
+          } | tee "target/fuzz-ci/$FUZZ_TARGET/environment.txt"
+          cp fuzz/Cargo.lock "target/fuzz-ci/$FUZZ_TARGET/Cargo.lock"
+      # cargo-fuzz has no --locked option. Fetch with the lockfile, build offline,
+      # and verify below that neither the build nor the campaign changed it.
+      - name: Fetch locked dependencies
+        run: cargo +nightly fetch --locked --manifest-path fuzz/Cargo.toml
+      - name: Build sanitizer target
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo +nightly fuzz build "$FUZZ_TARGET" 2>&1 | tee "target/fuzz-ci/$FUZZ_TARGET/build.log"
+      - name: Run bounded campaign
+        id: campaign
+        timeout-minutes: 32
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          command=(cargo +nightly fuzz run "$FUZZ_TARGET"
+            "fuzz/corpus/$FUZZ_TARGET" "fuzz/seeds/$FUZZ_TARGET" --
+            "-runs=$FUZZ_RUNS" "-max_total_time=$FUZZ_SECONDS"
+            -max_len=4096 -timeout=10 -rss_limit_mb=2048)
+          printf '%q ' "${command[@]}" > "target/fuzz-ci/$FUZZ_TARGET/command.txt"
+          printf '\n' >> "target/fuzz-ci/$FUZZ_TARGET/command.txt"
+          "${command[@]}" 2>&1 | tee "target/fuzz-ci/$FUZZ_TARGET/campaign.log"
+      - name: Verify unchanged fuzz lockfile
+        if: always()
+        run: git diff --exit-code -- fuzz/Cargo.lock
+      - name: Upload campaign evidence and crashes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: fuzz-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/fuzz-ci/${{ matrix.target }}/
+            fuzz/artifacts/${{ matrix.target }}/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Save corpus from default branch
+        if: >-
+          always() &&
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+          (steps.campaign.outcome == 'success' || steps.campaign.outcome == 'failure')
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: ${{ steps.corpus.outputs.cache-primary-key }}

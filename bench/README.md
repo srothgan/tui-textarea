@@ -27,6 +27,12 @@ cargo bench --locked -p tui-textarea-bench --bench layout -- layout_measure
 
 There is no custom runner. Cargo selects the targets and Criterion handles filtering, warm-up, sampling, reports, and saved baselines. The library harness is excluded from benchmarking, so Criterion flags reach only Criterion executables.
 
+## CI validation
+
+The [Benchmark Validation workflow](../.github/workflows/bench.yml) runs on pull requests and pushes to `main`. It lints the benchmark package and runs `cargo bench --locked -p tui-textarea-bench --benches -- --test` on Linux with Rust 1.88.0 and current stable. This compiles all five targets in the optimized bench profile and executes their workload assertions. A failed assertion fails the job.
+
+CI does not collect performance samples, compare baselines, or impose timing thresholds. There are no weekly or nightly benchmark measurement jobs. Run performance comparisons manually using the same machine and configuration for both revisions, as described below.
+
 ## Feature coverage
 
 | Target | Measured workloads | Relevant widget behavior |

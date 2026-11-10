@@ -52,6 +52,20 @@ The first corpus directory receives generated inputs; the second supplies checke
 
 cargo-fuzz enables AddressSanitizer, debug assertions, and overflow checks by default. Record `rustc +nightly -Vv`, `cargo fuzz --version`, the source revision, and exact command when sharing a finding. Reuse the same toolchain and `fuzz/Cargo.lock` to reproduce it.
 
+## CI campaigns and artifacts
+
+The [Fuzz workflow](../.github/workflows/fuzz.yml) verifies deliberate seeds, replays all seeds, and lints the harness on Linux with Rust 1.88.0 and current stable. The [Windows workflow](../.github/workflows/cross-platform.yml) also verifies and replays seeds on both toolchains. These deterministic checks do not need nightly Rust or a sanitizer.
+
+Native sanitizer campaigns use nightly Rust and cargo-fuzz 0.13.2 on Linux. Every target gets an independent job; one failure does not cancel the others. Pull requests and pushes to `main` run a smoke campaign with `-runs=10000 -max_total_time=60`. Weekly campaigns are scheduled for Monday at 03:23 UTC. To start the same longer campaign manually, open **Actions → Fuzz → Run workflow** and select a branch. Both longer modes use `-runs=1000000 -max_total_time=1800` per target. GitHub must have the workflow on the default branch before the schedule and manual trigger become available.
+
+All campaigns use `-max_len=4096 -timeout=10 -rss_limit_mb=2048`. The iteration or elapsed-time limit ends a campaign, whichever is reached first; the per-input timeout and memory limit turn hangs or excessive memory use into failures. The campaign step has a 32-minute timeout, and each job has a 45-minute limit including installation and compilation. "Nightly" names the Rust toolchain, not the run schedule.
+
+Smoke jobs start from the checked-in seeds. Long jobs restore the latest available generated corpus for each target, then pass the writable corpus directory first and the deliberate seed directory second. Only longer runs on the default branch save new shared corpus snapshots, including discoveries made before a crash. Cache reuse is best effort: an evicted or missing cache starts from seeds. The `fuzz-corpus-v1` cache prefix must change if the trace encoding changes incompatibly. Generated inputs are never committed automatically.
+
+cargo-fuzz has no `--locked` flag. CI fetches dependencies with `cargo fetch --locked`, builds and runs offline, and checks that `fuzz/Cargo.lock` stayed unchanged. The installed nightly compiler can change between runs, so each job records its exact compiler version and source commit.
+
+Each job attempts to upload a `fuzz-<target>-<run-id>-<attempt>` artifact even after failure, retained for 14 days. It contains `target/fuzz-ci/<target>/` with environment details, the fuzz lockfile, build/campaign logs, and the exact campaign command, plus `fuzz/artifacts/<target>/` if a failure produced inputs. A failure before recording starts, or a forcibly terminated runner, may leave no artifact. Download the artifact from the workflow run, inspect the logs, and use the recorded source revision, nightly compiler, and lockfile to reproduce a crash. The commands below also support stable replay and minimization. A confirmed library bug needs a focused regression test, a fix, and a preserved minimized seed; a harness failure needs its assertions corrected before the campaign counts as passing.
+
 ## Reproduce and minimize
 
 cargo-fuzz prints the crash path and reproduction command. Substitute the actual artifact path:
